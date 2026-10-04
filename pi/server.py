@@ -90,6 +90,16 @@ async def index(request):
     raise web.HTTPFound("/app/index.html")
 
 
+async def app_page(request):
+    """app/index.html is written without the document skeleton (so it can also be published as a
+    web artifact); add it here so the browser renders in standards mode."""
+    body = (APP_DIR / "index.html").read_text(encoding="utf-8")
+    html = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
+            '</head><body>' + body + '</body></html>')
+    return web.Response(text=html, content_type="text/html")
+
+
 def ssl_context():
     cert, key = ROOT / "cert.pem", ROOT / "key.pem"
     if not cert.exists():
@@ -125,6 +135,8 @@ def main():
     app.router.add_get("/", index)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/video.mjpg", mjpeg_handler)
+    app.router.add_get("/app/", app_page)
+    app.router.add_get("/app/index.html", app_page)
     app.router.add_static("/app", APP_DIR)
     scheme = "http" if args.http else "https"
     print(f"\n  Open on the phone:  {scheme}://{local_ip()}:{args.port}/\n")

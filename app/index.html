@@ -1,74 +1,320 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AURALIS</title>
+<title>AURALIS Cane</title>
+<meta name="theme-color" content="#0F5F58">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#111111">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Telugu:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&display=swap">
 <style>
-  :root { --bg: #111; --fg: #f5f5f5; --muted: #9a9a9a; --accent: #ffd400; --danger: #ff4d4d; --ok: #3ddc84; --card: #1d1d1d; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 18px/1.4 system-ui, sans-serif; padding: 12px 16px 40px; }
-  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: 2px; color: var(--accent); }
-  .sub { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  button, select { font: inherit; font-weight: 600; min-height: 64px; border-radius: 14px; border: 2px solid #333;
-                   background: var(--card); color: var(--fg); padding: 8px; }
-  button:active { background: #333; }
-  button.primary { background: var(--accent); color: #111; border-color: var(--accent); }
-  .full { grid-column: 1 / -1; }
-  #status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0; font-size: 14px; }
-  #status div { background: var(--card); border-radius: 10px; padding: 8px; text-align: center; }
-  #status b { display: block; font-size: 20px; }
-  #level { font-size: 28px; font-weight: 800; text-align: center; padding: 14px; border-radius: 14px; margin: 10px 0; background: var(--card); }
-  .l0 { color: var(--ok); } .l1 { color: var(--accent); } .l2 { color: orange; } .l3 { background: var(--danger) !important; color: #fff; }
-  #view { position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: #000; margin: 10px 0; }
-  #view img { width: 100%; display: block; min-height: 120px; }
-  details { background: var(--card); border-radius: 14px; padding: 10px 12px; margin-top: 10px; }
-  summary { font-weight: 700; cursor: pointer; }
-  #log { font: 13px/1.3 ui-monospace, monospace; color: var(--muted); max-height: 160px; overflow: auto; white-space: pre-wrap; }
-  #places button { width: 100%; margin-top: 6px; }
+/* Layout: one-column phone app. Status first, the corridor radar second, actions within thumb reach,
+   tab bar fixed at the bottom. Large targets (min 56px) for users with low vision. */
+:root {
+  --bg: #EEF2F2;        /* cool mineral grey, tinted toward the teal */
+  --surface: #FFFFFF;
+  --sunken: #E3E9E9;
+  --ink: #0E1A1C;
+  --muted: #55666A;
+  --line: #D3DCDC;
+  --accent: #0F5F58;    /* deep teal: primary actions */
+  --accent-ink: #FFFFFF;
+  --accent-soft: #D7ECE9;
+  --clear: #1F7A3E;
+  --caution: #9A6400;
+  --warning: #B4470E;
+  --stop: #C3202E;      /* the red band of a white cane */
+  --clear-soft: #DDF1E3; --caution-soft: #F8EBCF; --warning-soft: #FBE1D2; --stop-soft: #FADADD;
+  --cat-drop: #C3202E; --cat-raised: #B4470E; --cat-static: #2F5BA8; --cat-head: #7A3DB8; --cat-moving: #0F7C8C; --cat-zone: #6B7378;
+  --font: "Atkinson Hyperlegible", "Noto Sans Devanagari", "Noto Sans Telugu", "Noto Sans Tamil", system-ui, sans-serif;
+  --radius: 18px;
+  --shadow: 0 1px 2px rgb(14 26 28 / 6%), 0 6px 20px rgb(14 26 28 / 6%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B1213; --surface: #141E20; --sunken: #0F1819; --ink: #E8F0F0; --muted: #93A4A7; --line: #233133;
+    --accent: #3CC7B5; --accent-ink: #062321; --accent-soft: #123A36;
+    --clear: #5BD08A; --caution: #F0B94A; --warning: #FF8F5A; --stop: #FF5C6A;
+    --clear-soft: #12301F; --caution-soft: #33270C; --warning-soft: #3A1E10; --stop-soft: #431419;
+    --cat-drop: #FF5C6A; --cat-raised: #FF8F5A; --cat-static: #7FA6F0; --cat-head: #C49BF2; --cat-moving: #4FD0DE; --cat-zone: #9AA4A8;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B1213; --surface: #141E20; --sunken: #0F1819; --ink: #E8F0F0; --muted: #93A4A7; --line: #233133;
+  --accent: #3CC7B5; --accent-ink: #062321; --accent-soft: #123A36;
+  --clear: #5BD08A; --caution: #F0B94A; --warning: #FF8F5A; --stop: #FF5C6A;
+  --clear-soft: #12301F; --caution-soft: #33270C; --warning-soft: #3A1E10; --stop-soft: #431419;
+  --cat-drop: #FF5C6A; --cat-raised: #FF8F5A; --cat-static: #7FA6F0; --cat-head: #C49BF2; --cat-moving: #4FD0DE; --cat-zone: #9AA4A8;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.app { max-width: 560px; margin: 0 auto; padding-inline: 16px; padding-block: 0 calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+/* Header */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: flex; align-items: center; gap: 12px; padding-block: 14px 10px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.brand svg { flex: none; }
+.brand b { font-size: 20px; letter-spacing: 0.14em; }
+.brand small { display: block; color: var(--muted); font-size: 13px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--sunken); color: var(--muted); white-space: nowrap; }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.pill.on { background: var(--clear-soft); color: var(--clear); }
+.pill.demo { background: var(--accent-soft); color: var(--accent); }
+.langbtn { min-width: 48px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; }
+
+.banner { background: var(--accent-soft); color: var(--ink); border-radius: 12px; padding: 10px 14px; font-size: 14px; margin-bottom: 12px; }
+
+/* Screens */
+.screen { display: grid; gap: 14px; }
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; min-width: 0; }
+h2 { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+#routeTitle { text-transform: none; letter-spacing: 0; font-size: 17px; color: var(--ink); }
+h1.screen-title { font-size: 26px; margin: 6px 0 2px; text-wrap: balance; }
+
+/* Status: the one thing a glance must read */
+.status { border-radius: 22px; padding: 20px; display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: center; background: var(--clear-soft); transition: background .25s; }
+.status .ico { grid-row: span 2; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--clear); }
+.status .head { font-size: 28px; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.status .sub { color: var(--muted); font-size: 17px; font-variant-numeric: tabular-nums; }
+.status .chip { grid-column: 1 / -1; justify-self: start; margin-top: 6px; font-size: 14px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: var(--surface); color: var(--clear); letter-spacing: .04em; text-transform: uppercase; }
+.status[data-level="1"] { background: var(--caution-soft); } .status[data-level="1"] .ico, .status[data-level="1"] .chip { color: var(--caution); }
+.status[data-level="2"] { background: var(--warning-soft); } .status[data-level="2"] .ico, .status[data-level="2"] .chip { color: var(--warning); }
+.status[data-level="3"] { background: var(--stop); color: #fff; } .status[data-level="3"] .sub { color: rgb(255 255 255 / 85%); }
+.status[data-level="3"] .ico, .status[data-level="3"] .chip { color: var(--stop); background: #fff; }
+
+/* Corridor radar */
+.radar-wrap { position: relative; }
+#radar { width: 100%; height: 280px; display: block; border-radius: 14px; background: var(--sunken); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.hint { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+
+/* Buttons */
+.btn { min-height: 56px; border-radius: 16px; border: 0; padding: 10px 18px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); width: 100%; font-size: 19px; min-height: 64px; }
+.btn-primary[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.btn-quiet { background: var(--surface); border: 1px solid var(--line); }
+.btn-danger { background: var(--stop); color: #fff; }
+.actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.action { min-height: 92px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; align-content: center; gap: 6px; padding: 10px 6px; font-size: 14px; font-weight: 700; text-align: center; line-height: 1.2; }
+.action svg { color: var(--accent); }
+
+/* Lists */
+.list { display: grid; gap: 0; }
+.row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-block: 12px; border-top: 1px solid var(--line); min-width: 0; }
+.row:first-child { border-top: 0; padding-top: 2px; }
+.row .t { font-weight: 700; overflow-wrap: anywhere; }
+.row .m { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.dot { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--sunken); color: var(--muted); margin-inline-start: 6px; vertical-align: 2px; }
+.riskbar { height: 6px; border-radius: 3px; background: var(--sunken); margin-top: 6px; overflow: hidden; max-width: 180px; }
+.riskbar > span { display: block; height: 100%; border-radius: 3px; }
+.small-btn { min-height: 44px; border-radius: 12px; padding: 6px 14px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 15px; }
+.empty { color: var(--muted); padding: 6px 0; }
+.alert-row { display: flex; gap: 10px; align-items: baseline; padding-block: 8px; border-top: 1px solid var(--line); }
+.alert-row:first-child { border-top: 0; }
+.alert-row time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; flex: none; width: 58px; }
+.lv { width: 10px; height: 10px; border-radius: 50%; flex: none; align-self: center; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat { background: var(--surface); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); min-width: 0; }
+.stat b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 14px; }
+
+.saveform { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.saveform input { flex: 1 1 180px; min-width: 0; min-height: 56px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); padding: 0 14px; }
+.guide { background: var(--accent); color: var(--accent-ink); border-radius: var(--radius); padding: 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.guide b { font-size: 20px; }
+.guide .small-btn { background: transparent; color: inherit; border-color: currentColor; }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.compare div { border-radius: 14px; background: var(--sunken); padding: 12px; font-variant-numeric: tabular-nums; }
+.compare div.best { background: var(--clear-soft); }
+.compare b { display: block; font-size: 22px; }
+
+/* Settings */
+.langs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lang { min-height: 72px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface); text-align: start; padding: 10px 14px; display: grid; }
+.lang b { font-size: 20px; }
+.lang span { color: var(--muted); font-size: 13px; }
+.lang[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.setting { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-block: 12px; border-top: 1px solid var(--line); }
+.setting:first-of-type { border-top: 0; }
+.setting p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.switch { appearance: none; width: 56px; height: 32px; border-radius: 16px; background: var(--line); position: relative; flex: none; transition: background .2s; margin: 0; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgb(0 0 0 / 30%); }
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(24px); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.labelgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.labelgrid button { min-height: 56px; border-radius: 14px; border: 0; font-weight: 700; }
+.mono { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+#camera { width: 100%; border-radius: 12px; display: block; background: var(--sunken); min-height: 60px; margin-top: 10px; }
+details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+
+/* Tab bar */
+.tabs { position: fixed; inset-inline: 0; bottom: 0; z-index: 10; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tabs nav { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+.tabs button { border: 0; background: none; min-height: 68px; display: grid; place-items: center; align-content: center; gap: 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.tabs button[aria-selected="true"] { color: var(--accent); }
+.tabs button[aria-selected="true"] svg { background: var(--accent-soft); }
+.tabs svg { width: 56px; height: 30px; padding: 3px 16px; border-radius: 15px; }
+
+/* Dialogs */
+.overlay { position: fixed; inset: 0; z-index: 20; background: rgb(8 16 17 / 55%); display: grid; place-items: end center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+.sheet { background: var(--surface); border-radius: 24px; padding: 22px; width: 100%; max-width: 520px; display: grid; gap: 14px; }
+.sheet h3 { margin: 0; font-size: 22px; text-wrap: balance; }
+.sheet .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 14px; font-weight: 700; z-index: 30; max-width: calc(100% - 32px); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
-</head>
-<body>
-  <h1>AURALIS</h1>
-  <div class="sub">Smart cane · remembers hazards and places · multilingual voice</div>
 
-  <div class="grid">
-    <select id="lang" class="full" aria-label="Language"></select>
-    <button id="btnStart" class="primary full">Start walking</button>
-    <button id="btnSave">Save this place</button>
-    <button id="btnWhere">Where am I?</button>
-    <button id="btnGone">Hazard gone here</button>
-    <button id="btnStop">Stop guidance</button>
-  </div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-walk" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l2-6 3 3v3M8 12l2-4 4 1 2 3 2 1M11 9l-1 6"/></g></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-12a7 7 0 10-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></g></symbol>
+  <symbol id="i-memory" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></g></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></g></symbol>
+  <symbol id="i-locate" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></g></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/><path d="M12 7v6M9 10h6"/></g></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.5L16 9.5"/></g></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></g></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8l6 6v8l-6 6H8l-6-6V8z"/><path d="M9 9l6 6M15 9l-6 6"/></g></symbol>
+</svg>
 
-  <div id="level" class="l0" aria-live="assertive">—</div>
-  <div id="status">
-    <div>Front<b id="sFront">–</b></div>
-    <div>Ground<b id="sDown">–</b></div>
-    <div>GPS<b id="sGps">–</b></div>
-    <div>Hazards<b id="sHaz">0</b></div>
-    <div>Places<b id="sPlaces">0</b></div>
-    <div>Pi link<b id="sLink">off</b> <small id="sFps"></small></div>
-  </div>
-
-  <details open><summary>Go to a saved place</summary><div id="places"></div></details>
-
-  <div id="view"><img id="video" alt="Camera view from the cane"></div>
-
-  <details><summary>Research mode (label data for the neural network)</summary>
-    <p class="sub">While walking, tap what the situation really is. Rows are saved with the 8 sensor features.</p>
-    <div class="grid">
-      <button data-label="0">Safe</button><button data-label="1">Caution</button>
-      <button data-label="2">Warning</button><button data-label="3">Urgent</button>
-      <button id="btnExport">Export training CSV</button><button id="btnExportMem">Export memory JSON</button>
-      <button id="btnRoutes" class="full">Compare shortest vs safest route (to first place)</button>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="var(--accent)"/><path d="M13 7h5a3 3 0 013 3v1" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round"/><path d="M13 7l-1 16" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round"/><path d="M12 23l-.3 4" stroke="var(--stop)" stroke-width="2.6" stroke-linecap="round"/><path d="M22 18a5 5 0 010 7M25 15.5a9 9 0 010 12" fill="none" stroke="var(--accent-ink)" stroke-width="1.8" stroke-linecap="round" opacity=".8"/></svg>
+      <div style="min-width:0"><b>AURALIS</b><small id="tagline"></small></div>
     </div>
-  </details>
-  <details><summary>Event log</summary><div id="log"></div></details>
+    <span id="conn" class="pill" role="status"></span>
+    <button id="langBtn" class="langbtn" aria-label="Language"></button>
+  </header>
 
-  <script type="module" src="app.js"></script>
-</body>
-</html>
+  <div id="demoBanner" class="banner" hidden></div>
+
+  <!-- WALK -->
+  <section class="screen" id="tab-walk">
+    <div id="status" class="status" data-level="0" role="status" aria-live="assertive">
+      <div class="ico"><svg width="36" height="36"><use id="statusIcon" href="#i-check"/></svg></div>
+      <div class="head" id="statusHead"></div>
+      <div class="sub" id="statusSub"></div>
+      <div class="chip" id="statusChip"></div>
+    </div>
+
+    <button id="btnStart" class="btn btn-primary" aria-pressed="false"><svg width="26" height="26"><use href="#i-walk"/></svg><span></span></button>
+
+    <div class="actions">
+      <button class="action" id="btnWhere"><svg width="28" height="28"><use href="#i-locate"/></svg><span></span></button>
+      <button class="action" id="btnSave"><svg width="28" height="28"><use href="#i-bookmark"/></svg><span></span></button>
+      <button class="action" id="btnGone"><svg width="28" height="28"><use href="#i-check"/></svg><span></span></button>
+    </div>
+
+    <div class="card radar-wrap">
+      <h2 id="corridorTitle"></h2>
+      <canvas id="radar" role="img" aria-label="Walking corridor"></canvas>
+      <div class="legend" id="legend"></div>
+      <p class="hint" id="corridorHint"></p>
+    </div>
+
+    <div class="card">
+      <h2 id="alertsTitle"></h2>
+      <div id="alerts"></div>
+    </div>
+
+    <details class="card">
+      <summary id="helperTitle"></summary>
+      <img id="camera" alt="">
+    </details>
+  </section>
+
+  <!-- PLACES -->
+  <section class="screen" id="tab-places" hidden>
+    <h1 class="screen-title" id="placesTitle"></h1>
+    <div id="guideBox" class="guide" hidden><div><span id="guidingLbl"></span><br><b id="guideName"></b></div><button class="small-btn" id="btnStopGuide"></button></div>
+    <div class="card">
+      <div class="list" id="placesList"></div>
+      <form class="saveform" id="saveForm">
+        <label class="sr-only" for="placeInput" id="placeInputLbl"></label>
+        <input id="placeInput" autocomplete="off">
+        <button class="btn btn-quiet" id="btnSavePlace" type="submit"></button>
+      </form>
+    </div>
+    <div class="card" id="routeCard" hidden>
+      <h2 id="routeTitle"></h2>
+      <div class="compare" id="compare"></div>
+    </div>
+  </section>
+
+  <!-- MEMORY -->
+  <section class="screen" id="tab-memory" hidden>
+    <h1 class="screen-title" id="memoryTitle"></h1>
+    <div class="stats">
+      <div class="stat"><b id="nHaz">0</b><span id="nHazL"></span></div>
+      <div class="stat"><b id="nPlaces">0</b><span id="nPlacesL"></span></div>
+      <div class="stat"><b id="nNodes">0</b><span id="nNodesL"></span></div>
+    </div>
+    <div class="card"><div class="list" id="hazList"></div></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="screen" id="tab-settings" hidden>
+    <h1 class="screen-title" id="settingsTitle"></h1>
+    <div class="card">
+      <h2 id="langTitle"></h2>
+      <div class="langs" id="langs" role="radiogroup"></div>
+    </div>
+    <div class="card">
+      <div class="setting"><label for="rate" id="rateL"></label><span class="mono" id="rateV"></span></div>
+      <input type="range" id="rate" min="0.7" max="1.5" step="0.1" value="1">
+      <div class="setting"><div><label for="vib" id="vibL"></label></div><input type="checkbox" class="switch" id="vib" checked></div>
+      <div class="setting"><div><label for="demo" id="demoL"></label><p id="demoHint"></p></div><input type="checkbox" class="switch" id="demo"></div>
+    </div>
+    <div class="card">
+      <h2 id="researchTitle"></h2>
+      <p class="hint" id="researchHint" style="margin-top:0"></p>
+      <div class="labelgrid" id="labelGrid"></div>
+      <p class="mono" id="rowsCount"></p>
+      <div class="labelgrid">
+        <button class="btn btn-quiet" id="btnExport"></button>
+        <button class="btn btn-quiet" id="btnExportMem"></button>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="connTitle"></h2>
+      <p class="mono" id="connInfo"></p>
+      <p class="mono" id="modelInfo"></p>
+      <button class="btn btn-danger" id="btnReset" style="width:100%;margin-top:8px"></button>
+    </div>
+  </section>
+</div>
+
+<div class="tabs"><nav role="tablist">
+  <button role="tab" id="t0" data-tab="walk" aria-selected="true"><svg><use href="#i-walk"/></svg><span></span></button>
+  <button role="tab" id="t1" data-tab="places" aria-selected="false"><svg><use href="#i-pin"/></svg><span></span></button>
+  <button role="tab" id="t2" data-tab="memory" aria-selected="false"><svg><use href="#i-memory"/></svg><span></span></button>
+  <button role="tab" id="t3" data-tab="settings" aria-selected="false"><svg><use href="#i-gear"/></svg><span></span></button>
+</nav></div>
+
+<div class="overlay" id="langSheet" hidden><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="langSheetTitle">
+  <h3 id="langSheetTitle">Choose your language · अपनी भाषा चुनें · మీ భాషను ఎంచుకోండి · உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்</h3>
+  <div class="langs" id="langsFirst"></div>
+</div></div>
+
+<div class="overlay" id="confirmSheet" hidden><div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="confirmText">
+  <h3 id="confirmText"></h3>
+  <div class="row2"><button class="btn btn-quiet" id="btnCancel"></button><button class="btn btn-danger" id="btnConfirm"></button></div>
+</div></div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="module" src="app.js"></script>

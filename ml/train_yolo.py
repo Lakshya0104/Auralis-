@@ -6,7 +6,7 @@ Steps:
      Label ids must follow the `names` list in ml/data.yaml (remap downloaded datasets to these ids).
   2. python ml/train_yolo.py pseudo   # adds person / car / dog ... boxes using the stock COCO model,
                                       # so the new model does not forget those classes
-  3. python ml/train_yolo.py train    # ~1 h on a Colab T4 for ~2k images
+  3. python ml/train_yolo.py train [epochs]   # ~1 h on a Colab T4 for ~2k images
   4. python ml/train_yolo.py export   # writes pi/models/auralis_yolo.pt + NCNN version for the Pi 4
 
 Colab:  !pip install ultralytics  then  !git clone <this repo> && cd <repo> && run the steps.
@@ -47,10 +47,20 @@ def pseudo_label():
         print(f"pseudo-labelled {split}")
 
 
-def train():
+def resolved_data_yaml():
+    """data.yaml with an absolute dataset path (Ultralytics otherwise looks in its own datasets folder)."""
+    cfg = yaml.safe_load(DATA.read_text())
+    cfg["path"] = str(ROOT / cfg["path"])
+    out = ROOT / "runs" / "data_resolved.yaml"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(yaml.safe_dump(cfg, allow_unicode=True))
+    return str(out)
+
+
+def train(epochs=60):
     from ultralytics import YOLO
     model = YOLO("yolov8n.pt")  # start from COCO weights (transfer learning)
-    model.train(data=str(DATA), imgsz=320, epochs=60, batch=32, patience=15,
+    model.train(data=resolved_data_yaml(), imgsz=320, epochs=int(epochs), batch=32, patience=15,
                 # augmentations that match cane footage: brightness, blur from walking, small rotations
                 hsv_v=0.5, degrees=8, translate=0.1, scale=0.4, fliplr=0.5, mosaic=1.0,
                 project=str(ROOT / "runs"), name="auralis", exist_ok=True)
@@ -69,4 +79,4 @@ def export():
 
 
 if __name__ == "__main__":
-    {"pseudo": pseudo_label, "train": train, "export": export}[sys.argv[1]]()
+    {"pseudo": pseudo_label, "train": train, "export": export}[sys.argv[1]](*sys.argv[2:])

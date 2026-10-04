@@ -2,7 +2,9 @@
 
 A smart white cane for visually impaired users. A Raspberry Pi 4 with a camera sees obstacles, and the user's phone speaks them in **English, Hindi, Telugu or Tamil** through Bluetooth earphones. Unlike reactive smart canes, AURALIS **remembers** where hazards are, warns about them before they're even in view, and routes around them.
 
-Design and research plan: [`docs/AURALIS_Research_and_Design_Plan.pdf`](docs/AURALIS_Research_and_Design_Plan.pdf) · Paper outline: [`docs/paper_outline.md`](docs/paper_outline.md)
+Design and research plan: [`docs/AURALIS_Research_and_Design_Plan.pdf`](docs/AURALIS_Research_and_Design_Plan.pdf) · Paper outline: [`docs/paper_outline.md`](docs/paper_outline.md) · Dataset guide: [`docs/DATASET_GUIDE.md`](docs/DATASET_GUIDE.md)
+
+**The phone app** has four screens: Walk, Places, Memory and Settings. Every screen is translated into all 4 languages, and you pick one the first time you open it. Without a Pi connected, it runs in *demo mode* with simulated cane data, so you can show it anywhere.
 
 ## How it works
 
@@ -39,8 +41,11 @@ A vehicle that has been standing still for 3 s counts as parked (static), so it 
 | `pi/perception.py` | Taxonomy, walking corridor, tracking / approach speed, parked-vehicle logic |
 | `pi/ultrasonic.py` | HC-SR04 drop / step detection with self-learning ground baseline |
 | `pi/config.py` | **All settings**: camera height/tilt, pins, classes, thresholds |
-| `app/` | Phone web app: voice, memory, routing, fusion network |
-| `ml/train_yolo.py` | Fine-tune YOLO on our classes (Colab) |
+| `app/` | Phone web app: voice, memory, routing, fusion network, corridor radar, demo mode |
+| `pi/capture.py` | Collect training photos from the cane camera while walking |
+| `ml/AURALIS_train_yolo.ipynb` | **Colab notebook:** download, merge, train, evaluate and export the detector |
+| `ml/merge_datasets.py` | Merge Roboflow / Kaggle / own datasets into AURALIS class ids |
+| `ml/train_yolo.py` | Fine-tune YOLO on our classes |
 | `ml/train_fusion.py` | Train the fusion network |
 
 ## Setup
@@ -79,14 +84,11 @@ python server.py --video walk.mp4    # run the real model on a recorded video (n
 
 ## Training the neural networks
 
-**NN 1, YOLO (custom classes).** The stock model already knows person, vehicles and animals. For pothole, drain, stairs, curb, pole and similar classes:
-1. Download YOLO-format datasets for those classes from Roboflow Universe or Kaggle.
-2. Add 100–200 photos taken from cane height on your campus.
-3. Remap the label ids to the order in `ml/data.yaml` and put everything in `datasets/auralis/`.
-4. On Colab, run `python ml/train_yolo.py pseudo`, then `train`, then `export`.
-5. Copy `pi/models/auralis_yolo*` to the Pi.
-
-The `pseudo` step auto-labels people and vehicles in your images with a bigger COCO model, so the fine-tuned model doesn't forget them.
+**NN 1, YOLO (custom classes).** The stock model already knows people, vehicles and animals. For pothole, drain, stairs, curb, pole and similar classes, follow [`docs/DATASET_GUIDE.md`](docs/DATASET_GUIDE.md):
+1. Collect your own photos with `pi/capture.py`.
+2. Combine them with public datasets from Roboflow or Kaggle.
+3. Run [`ml/AURALIS_train_yolo.ipynb`](ml/AURALIS_train_yolo.ipynb) on a free Colab GPU (about 1 hour).
+4. Unzip the result into `pi/models/`.
 
 **NN 2, MiDaS depth.** It's pre-trained, and `setup_pi.sh` downloads it. Its relative depth is scaled to metres every frame using the geometric estimates.
 

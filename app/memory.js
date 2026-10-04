@@ -2,7 +2,7 @@
 // cane builds by itself from the paths the user actually walks.
 // Everything is stored on the phone (localStorage) — works offline.
 
-const KEY = 'auralis-memory-v1';
+let KEY = 'auralis-memory-v1';
 const HAZARD_MERGE_M = 8;     // detections closer than this are one hazard
 const NODE_MERGE_M = 6;       // breadcrumbs closer than this are one graph node
 const BREADCRUMB_M = 5;       // record a breadcrumb every N metres walked
@@ -10,6 +10,8 @@ export const HALF_LIFE_DAYS = 7;
 
 
 let db = load();
+// Demo mode keeps its own memory so example data never mixes with real hazards
+export function useStore(name) { KEY = name; db = load(); lastCrumb = null; }
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch { return fresh(); }
 }
@@ -68,6 +70,8 @@ export function recordHazard(pos, cls, confidence, distanceM, severity = 0.5, ca
   save();
   return h;
 }
+
+export function removeHazard(id) { db.hazards = db.hazards.filter((h) => h.id !== id); save(); }
 
 // User says "it's gone" near a hazard -> strong negative evidence
 export function clearHazardsNear(pos, radius = 10) {

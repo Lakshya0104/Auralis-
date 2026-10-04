@@ -3,10 +3,10 @@
 // Have a native speaker check each table before your demo.
 
 export const LANGS = {
-  en: { code: 'en-IN', name: 'English' },
-  hi: { code: 'hi-IN', name: 'हिन्दी' },
-  te: { code: 'te-IN', name: 'తెలుగు' },
-  ta: { code: 'ta-IN', name: 'தமிழ்' },
+  en: { code: 'en-IN', name: 'English', english: 'English' },
+  hi: { code: 'hi-IN', name: 'हिन्दी', english: 'Hindi' },
+  te: { code: 'te-IN', name: 'తెలుగు', english: 'Telugu' },
+  ta: { code: 'ta-IN', name: 'தமிழ்', english: 'Tamil' },
 };
 
 const OBJECTS = {
@@ -124,10 +124,13 @@ export const t = (key, ...args) => {
   return typeof p === 'function' ? p(...args) : p;
 };
 
+let rate = 1;
+export const setRate = (r) => { rate = r; };
 let lastSpoken = '';
 let lastAt = 0;
 // priority: 0 = info, 1 = warning, 2 = urgent (interrupts)
 export function speak(text, priority = 0) {
+  if (!('speechSynthesis' in window)) return;
   const now = Date.now();
   if (text === lastSpoken && now - lastAt < 4000) return;
   if (speechSynthesis.speaking) {
@@ -136,7 +139,7 @@ export function speak(text, priority = 0) {
   }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = LANGS[lang].code;
-  u.rate = priority === 2 ? 1.25 : 1.1;
+  u.rate = rate * (priority === 2 ? 1.15 : 1);
   speechSynthesis.speak(u);
   lastSpoken = text;
   lastAt = now;
