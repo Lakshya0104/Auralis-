@@ -3,18 +3,16 @@ import * as mem from './memory.js';
 import { route } from './router.js';
 import { loadFusion, fuse } from './fusion.js';
 
+// The Pi serves this page and streams obstacles from pi/server.py on /ws.
+// The phone adds GPS, compass, voice, vibration, memory and routing.
+
 const $ = (id) => document.getElementById(id);
-const SVC = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
-const TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 const LEVEL_NAMES = ['Clear', 'Caution', 'Warning', 'STOP'];
-const RELEVANT = new Set(['person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck', 'dog', 'cow', 'chair', 'bench',
-  'fire hydrant', 'stop sign', 'potted plant', 'traffic light']);
+const VIBRATION = [0, [80], [150, 100, 150], [250, 80, 250, 80, 250]];
 
 const state = {
-  front: 400, down: null, ground: null, frontHist: [], button: false,
-  pos: null, heading: null, det: null, features: null,
-  rx: null, model: null, guiding: null, training: [], lastAlert: 0, lastLevel: 0, lastMemWarn: new Map(),
+  pos: null, heading: null, frame: null, primary: null, features: null,
+  guiding: null, training: [], lastAlert: 0, lastLevel: 0, lastMemWarn: new Map(), lastFrameAt: 0,
 };
 
 function log(msg) {
@@ -28,110 +26,78 @@ $('lang').value = localStorage.getItem('auralis-lang') || 'en';
 setLang($('lang').value);
 $('lang').onchange = () => { setLang($('lang').value); localStorage.setItem('auralis-lang', $('lang').value); speak(LANGS[$('lang').value].name); };
 
-// ---------- cane over BLE ----------
-$('btnCane').onclick = async () => {
-  try {
-    const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
-    dev.addEventListener('gattserverdisconnected', () => { state.rx = null; speak(t('disconnected'), 1); log('cane disconnected'); });
-    const svc = await (await dev.gatt.connect()).getPrimaryService(SVC);
-    state.rx = await svc.getCharacteristic(RX);
-    const tx = await svc.getCharacteristic(TX);
-    tx.addEventListener('characteristicvaluechanged', (e) => onCanePacket(new TextDecoder().decode(e.target.value)));
-    await tx.startNotifications();
-    speak(t('connected'));
-    log('cane connected');
-  } catch (e) { log('BLE: ' + e.message); }
-};
-
-function onCanePacket(s) {
-  const v = Object.fromEntries(s.split(',').map((p) => p.split(':')).map(([k, n]) => [k, +n]));
-  state.front = v.F; state.down = v.D; state.ground = v.G;
-  const btn = v.B === 1;
-  if (btn && !state.button) whereAmI();       // cane button = "where am I"
-  state.button = btn;
-  state.frontHist.push({ t: performance.now(), f: v.F });
-  if (state.frontHist.length > 10) state.frontHist.shift();
-  $('sFront').textContent = v.F >= 400 ? '>4m' : (v.F / 100).toFixed(1) + 'm';
-  $('sDown').textContent = v.D - v.G > 25 ? 'DROP' : 'ok';
+// ---------- link to the Pi ----------
+function connectPi() {
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  ws.onopen = () => { $('sLink').textContent = 'on'; speak(t('connected')); log('Pi connected'); };
+  ws.onmessage = (e) => onFrame(JSON.parse(e.data));
+  ws.onclose = () => { $('sLink').textContent = 'off'; setTimeout(connectPi, 2000); };
 }
-
-let vibrateBusy = false;
-async function vibrateCane(level) {
-  if (navigator.vibrate) navigator.vibrate([0, [80], [150, 100, 150], [250, 80, 250, 80, 250]][level] || 0);
-  if (!state.rx || vibrateBusy) return;
-  vibrateBusy = true;
-  try { await state.rx.writeValueWithoutResponse(new TextEncoder().encode('V' + level)); } catch {}
-  vibrateBusy = false;
-}
-
-// ---------- camera + detector ----------
-async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 640, height: 480 }, audio: false });
-  $('video').srcObject = stream;
-  await $('video').play();
-  state.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-  log('detector ready');
-  detectLoop();
-}
-
-async function detectLoop() {
-  const v = $('video'), c = $('overlay'), g = c.getContext('2d');
-  c.width = v.videoWidth; c.height = v.videoHeight;
-  const preds = (await state.model.detect(v, 10, 0.45)).filter((p) => RELEVANT.has(p.class));
-  g.clearRect(0, 0, c.width, c.height);
-  let best = null, bestScore = 0;
-  for (const p of preds) {
-    const [x, y, w, h] = p.bbox;
-    const area = (w * h) / (c.width * c.height);
-    const cx = (x + w / 2) / c.width;
-    const offset = Math.min(Math.abs(cx - 0.5) * 2, 1);
-    const sev = mem.severityOf(p.class);
-    const score = sev * p.score * (1 - offset * 0.7) + area;
-    if (score > bestScore) { bestScore = score; best = { cls: p.class, conf: p.score, area, offset, side: cx < 0.4 ? 'left' : cx > 0.6 ? 'right' : 'ahead' }; }
-    g.strokeStyle = '#ffd400'; g.lineWidth = 3; g.strokeRect(x, y, w, h);
-    g.fillStyle = '#ffd400'; g.font = '18px sans-serif'; g.fillText(`${p.class} ${(p.score * 100) | 0}%`, x + 4, y + 20);
+// Safety: if perception stops (Pi crash, Wi-Fi drop), tell the user instead of going silent
+setInterval(() => {
+  if (state.lastFrameAt && Date.now() - state.lastFrameAt > 3000) {
+    speak(t('linkLost'), 2);
+    navigator.vibrate?.([400, 200, 400]);
+    state.lastFrameAt = 0;
   }
-  state.det = best;
-  tick();
-  setTimeout(detectLoop, 150);
+}, 1000);
+
+function onFrame(f) {
+  state.frame = f;
+  state.lastFrameAt = Date.now();
+  $('sFps').textContent = f.fps;
+  $('sDown').textContent = f.ultra.drop ? 'DROP' : f.ultra.raised ? 'STEP' : f.ultra.cm ? 'ok' : '–';
+  // The most important obstacle: in the walking corridor, nearest first (the Pi sorts them)
+  state.primary = f.obstacles.find((o) => o.inCorridor) || null;
+  const p = state.primary;
+  $('sFront').textContent = p ? p.dist.toFixed(1) + 'm' : '–';
+  decide(f);
 }
 
 // ---------- fusion + alerts ----------
-function features() {
-  const d = state.det;
-  const drop = state.down != null && state.ground != null ? Math.max(-1, Math.min(1, (state.down - state.ground) / 100)) : 0;
-  let approach = 0;
-  const h = state.frontHist;
-  if (h.length > 3) {
-    const dt = (h.at(-1).t - h[0].t) / 1000;
-    approach = Math.max(0, Math.min(1, ((h[0].f - h.at(-1).f) / dt) / 100));
-  }
-  const memRisk = state.pos ? Math.min(1, mem.hazardsAhead(state.pos, state.heading, 15).reduce((s, x) => s + x.risk, 0)) : 0;
-  return [Math.min(state.front, 400) / 400, drop, d ? mem.severityOf(d.cls) : 0, d ? d.conf : 0,
-          d ? Math.min(d.area, 1) : 0, d ? d.offset : 1, memRisk, approach];
+// Feature vector for the fusion network (must match ml/train_fusion.py)
+function features(f) {
+  const o = state.primary;
+  const u = f.ultra;
+  const drop = u.cm != null && u.baseline != null ? Math.max(-1, Math.min(1, (u.cm - u.baseline) / 100)) : 0;
+  const memRisk = state.pos
+    ? Math.min(1, mem.hazardsAhead(state.pos, state.heading, 15).reduce((s, x) => s + x.risk, 0)) : 0;
+  return [o ? Math.min(o.dist, 4) / 4 : 1, drop, o ? o.severity : 0, o ? o.conf : 0,
+          o ? Math.min(o.area, 1) : 0, o ? o.offset : 1, memRisk, o ? Math.max(0, Math.min(1, o.approach / 2)) : 0];
 }
 
-function tick() {
-  const x = features();
+function phrase(o, level) {
+  const name = obj(o.cls);
+  const m = Math.max(1, Math.round(o.dist));
+  if (level === 3) return t('stop', name);
+  if (o.category === 'moving' && o.approach > 0.5) return t('approaching', name);
+  if (o.category === 'head') return t('head', name, m);
+  return t(o.side, name, m);
+}
+
+function decide(f) {
+  const x = features(f);
   state.features = x;
-  const { level } = fuse(x);
+  let { level } = fuse(x);
+  const o = state.primary;
+  // Safety override: a drop / pit is always STOP; the network may raise but never lower this
+  if (o && o.category === 'drop' && o.dist < 1.5) level = 3;
+  if (!o && x[6] < 0.3) level = Math.min(level, 1);
+
   const el = $('level');
-  el.textContent = LEVEL_NAMES[level] + (state.det ? ` · ${state.det.cls}` : '');
+  el.textContent = LEVEL_NAMES[level] + (o ? ` · ${o.cls} ${o.dist.toFixed(1)}m` : '');
   el.className = 'l' + level;
 
   const now = Date.now();
   const cooldown = [Infinity, 6000, 3000, 1500][level];
-  if (level > 0 && (level > state.lastLevel || now - state.lastAlert > cooldown)) {
-    const isDrop = x[1] > 0.25;
-    const name = obj(isDrop ? 'drop' : state.det ? state.det.cls : 'obstacle');
-    const metres = state.front < 400 ? Math.max(1, Math.round(state.front / 100)) : 3;
-    const side = state.det && !isDrop ? state.det.side : 'ahead';
-    speak(level === 3 ? t('stop', name) : t(side, name, metres), level === 3 ? 2 : 1);
-    vibrateCane(level);
+  if (o && level > 0 && (level > state.lastLevel || now - state.lastAlert > cooldown)) {
+    speak(phrase(o, level), level === 3 ? 2 : 1);
+    navigator.vibrate?.(VIBRATION[level]);
     state.lastAlert = now;
-    // Remember real hazards (not people walking past) with their location
-    if (level >= 2 && state.pos && (isDrop || (state.det && state.det.cls !== 'person'))) {
-      mem.recordHazard(state.pos, isDrop ? 'drop' : state.det ? state.det.cls : 'obstacle', state.det?.conf ?? 0.8, state.front / 100);
+    // Remember static hazards where they are (ahead of the user), never people / moving traffic
+    if (level >= 2 && o.remember && state.pos && state.pos.accuracy < 30) {
+      const where = state.heading != null ? mem.offset(state.pos, state.heading, o.dist) : state.pos;
+      mem.recordHazard(where, o.cls, o.conf, o.dist, o.severity, o.category);
       refreshStats();
     }
   }
@@ -158,12 +124,13 @@ function startLocation() {
   addEventListener('deviceorientation', onOrient);
 }
 
+// Feature 1: warn about remembered hazards long before the camera can see them
 function warnRemembered() {
   for (const { h, d } of mem.hazardsAhead(state.pos, state.heading, 25)) {
     const last = state.lastMemWarn.get(h.id) || 0;
-    if (Date.now() - last > 120000 && d > 3) {
+    if (Date.now() - last > 120000 && d > 4) {
       speak(t('remembered', obj(h.cls), Math.round(d)), 1);
-      vibrateCane(1);
+      navigator.vibrate?.(VIBRATION[1]);
       state.lastMemWarn.set(h.id, Date.now());
       log(`memory: ${h.cls} seen ${h.count}x, ${Math.round(d)}m ahead`);
       return;
@@ -171,6 +138,7 @@ function warnRemembered() {
   }
 }
 
+// Feature 2: guide to a saved place along the safest learned route
 let lastGuide = 0;
 function guide() {
   const g = state.guiding;
@@ -178,18 +146,15 @@ function guide() {
   lastGuide = Date.now();
   const dest = g.place;
   const dist = mem.distM(state.pos, dest);
-  if (dist < 8) { speak(t('arrived', dest.name), 1); vibrateCane(4); state.guiding = null; return; }
-  // follow the safest learned route; aim for the next waypoint ~10 m ahead
+  if (dist < 8) { speak(t('arrived', dest.name), 1); navigator.vibrate?.(VIBRATION[1]); state.guiding = null; return; }
   const gr = mem.graph();
-  const r = route(gr, mem.nearestNode(state.pos)?.id ?? dest.node, dest.node);
+  const start = mem.nearestNode(state.pos);
+  const r = start ? route(gr, start.id, dest.node) : null;
   let target = dest;
-  if (r) {
-    target = r.path.map((id) => gr.nodes[id]).find((n) => mem.distM(state.pos, n) > 10) || dest;
-  }
+  if (r) target = r.path.map((id) => gr.nodes[id]).find((n) => mem.distM(state.pos, n) > 10) || dest;
   const rel = state.heading == null ? 0 : (mem.bearing(state.pos, target) - state.heading + 360) % 360;
-  const dirs = t('dirs');
   const idx = rel < 20 || rel > 340 ? 0 : rel < 60 ? 1 : rel < 150 ? 2 : rel < 210 ? 3 : rel < 300 ? 4 : 5;
-  speak(t('toPlace', dest.name, Math.round(dist), dirs[idx]));
+  speak(t('toPlace', dest.name, Math.round(dist), t('dirs')[idx]));
 }
 
 function whereAmI() {
@@ -203,7 +168,6 @@ function refreshStats() {
   const d = mem.dump();
   $('sHaz').textContent = d.hazards.length;
   $('sPlaces').textContent = d.places.length;
-  $('sNodes').textContent = d.nodes.length;
   const box = $('places');
   box.innerHTML = '';
   for (const p of d.places) {
@@ -214,10 +178,11 @@ function refreshStats() {
   }
 }
 
-$('btnStart').onclick = async () => {
+$('btnStart').onclick = () => {
   speak('AURALIS');
   startLocation();
-  try { await startCamera(); } catch (e) { log('camera: ' + e.message + ' — running on cane sensors only'); setInterval(tick, 200); }
+  connectPi();
+  $('video').src = '/video.mjpg';
   $('btnStart').disabled = true;
 };
 
@@ -235,8 +200,9 @@ $('btnSave').onclick = () => {
 
 $('btnWhere').onclick = whereAmI;
 $('btnStop').onclick = () => { state.guiding = null; speechSynthesis.cancel(); };
-$('btnGone').onclick = () => { if (state.pos) { mem.clearHazardsNear(state.pos); refreshStats(); vibrateCane(4); } };
+$('btnGone').onclick = () => { if (state.pos) { mem.clearHazardsNear(state.pos); refreshStats(); navigator.vibrate?.(60); } };
 
+// Research mode: label real situations to train the fusion network on field data
 document.querySelectorAll('[data-label]').forEach((b) => b.onclick = () => {
   if (!state.features) return;
   state.training.push([...state.features, +b.dataset.label]);
@@ -255,14 +221,15 @@ $('btnExportMem').onclick = () => download('auralis_memory.json', JSON.stringify
 
 $('btnRoutes').onclick = () => {
   const p = mem.places()[0];
-  if (!p || !state.pos) return log('need a saved place and a GPS fix');
-  const g = mem.graph(), start = mem.nearestNode(state.pos)?.id;
-  if (start == null) return speak(t('noRoute'));
-  const short = route(g, start, p.node, 0), safe = route(g, start, p.node);
+  const start = state.pos && mem.nearestNode(state.pos);
+  if (!p || !start) return log('need a saved place and a GPS fix');
+  const g = mem.graph();
+  const short = route(g, start.id, p.node, 0), safe = route(g, start.id, p.node);
   if (!short) return speak(t('noRoute'));
   log(`shortest: ${short.length.toFixed(0)} m, risk ${short.risk.toFixed(2)} | safest: ${safe.length.toFixed(0)} m, risk ${safe.risk.toFixed(2)}`);
 };
 
 loadFusion().then((ok) => log(ok ? 'neural fusion model loaded' : 'fusion weights missing — using rules'));
 refreshStats();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+// (fails harmlessly with the Pi's self-signed certificate; works when hosted with a real one)
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

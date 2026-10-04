@@ -8,9 +8,6 @@ const NODE_MERGE_M = 6;       // breadcrumbs closer than this are one graph node
 const BREADCRUMB_M = 5;       // record a breadcrumb every N metres walked
 export const HALF_LIFE_DAYS = 7;
 
-const SEVERITY = { drop: 1.0, car: 0.9, bus: 0.9, truck: 0.9, motorcycle: 0.85, bicycle: 0.6, cow: 0.7, dog: 0.5,
-                   obstacle: 0.6, 'fire hydrant': 0.5, bench: 0.4, chair: 0.4, person: 0.2 };
-export const severityOf = (cls) => SEVERITY[cls] ?? 0.4;
 
 let db = load();
 function load() {
@@ -43,7 +40,15 @@ export function hazardRisk(h, now = Date.now()) {
   return h.severity * evidence * recency * h.confidence;
 }
 
-export function recordHazard(pos, cls, confidence, distanceM) {
+// Point `distM` metres from `pos` in direction `deg` (the hazard is ahead of the user, not under them)
+export function offset(pos, deg, dist) {
+  const r = Math.PI / 180;
+  return { lat: pos.lat + (dist * Math.cos(deg * r)) / 111320,
+           lon: pos.lon + (dist * Math.sin(deg * r)) / (111320 * Math.cos(pos.lat * r)) };
+}
+
+// severity comes from the obstacle taxonomy on the Pi (pi/config.py)
+export function recordHazard(pos, cls, confidence, distanceM, severity = 0.5, category = '') {
   const now = Date.now();
   db.log.push({ t: now, lat: pos.lat, lon: pos.lon, cls, confidence, distanceM });
   if (db.log.length > 5000) db.log.shift();
@@ -56,7 +61,7 @@ export function recordHazard(pos, cls, confidence, distanceM) {
     h.confidence = Math.max(h.confidence * 0.8 + confidence * 0.2, confidence * 0.5);
     h.lastSeen = now;
   } else {
-    h = { id: crypto.randomUUID(), lat: pos.lat, lon: pos.lon, cls, severity: severityOf(cls),
+    h = { id: crypto.randomUUID(), lat: pos.lat, lon: pos.lon, cls, category, severity,
           confidence, count: 1, firstSeen: now, lastSeen: now };
     db.hazards.push(h);
   }

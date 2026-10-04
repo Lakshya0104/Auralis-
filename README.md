@@ -1,82 +1,98 @@
-# AURALIS — a smart cane that remembers
+# AURALIS: a smart cane that remembers
 
-AURALIS is a smart cane plus phone app for visually impaired users. Most smart canes only react to what is in front of them. AURALIS also **remembers**:
+A smart white cane for visually impaired users. A Raspberry Pi 4 with a camera sees obstacles, and the user's phone speaks them in **English, Hindi, Telugu or Tamil** through Bluetooth earphones. Unlike reactive smart canes, AURALIS **remembers** where hazards are, warns about them before they're even in view, and routes around them.
 
-1. **Hazard memory.** Every confirmed hazard (pit, step-down, parked bike, pole…) is stored with its GPS location and time. It gets more weight each time it is seen again and fades over time (half-life of 7 days). The next time you walk that way, the cane warns you *before* the sensors can see it: "Careful. Remembered step down or pit, 15 metres ahead."
-2. **Self-built map.** As you walk, the app quietly records your path as a graph. You don't need any map data, and it works inside campuses and lanes that OpenStreetMap doesn't cover.
-3. **Safest route, not shortest.** You can save places by voice ("library", "bus stop"). To guide you there, A* runs on the learned graph with `cost = length × (1 + λ·risk)`, so it chooses a slightly longer route that avoids remembered hazards.
-4. **Neural sensor fusion.** A small neural network (MLP 8→16→16→4) combines ultrasonic distance, the drop sensor, the camera's detection (class, confidence, size, position), approach speed and the memory risk into one alert level: safe, caution, warning or urgent.
-5. **Multilingual voice.** English, Hindi, Telugu and Tamil, through phone or Bluetooth earphones, plus haptic patterns on the cane.
-6. **Graceful fallback.** If the phone disconnects, the cane still vibrates on its own.
+Design and research plan: [`docs/AURALIS_Research_and_Design_Plan.pdf`](docs/AURALIS_Research_and_Design_Plan.pdf) · Paper outline: [`docs/paper_outline.md`](docs/paper_outline.md)
+
+## How it works
 
 ```
- ESP32 cane ──BLE──► Phone app (PWA) ──► earphones (voice) / cane motor (haptics)
- front + down        camera → COCO-SSD detector
- ultrasonic,         features → neural fusion → alert level
- button, motor       GPS + compass → hazard memory + walk graph → risk-aware A*
+ Pi 4 on the cane (pi/)                                  Phone (app/, opened from the Pi)
+ ───────────────────────                                 ─────────────────────────────────
+ Camera ─► YOLO (NN 1) ─► distance: ground geometry      GPS + compass
+                          + MiDaS depth (NN 2)    ─wss─► fusion network (NN 3) ─► alert level
+ HC-SR04 (down) ─► drop / step detection                 voice (4 languages) + vibration
+ ─► obstacle list: class, category, distance,            hazard memory (decay + repeat evidence)
+    side, in-corridor?, approach speed                   self-learned path map + safest-route A*
 ```
+
+**Obstacle** means anything inside the 1 m wide walking corridor, from the ground up to head height, within 4 m. Each detected class belongs to one category, set in `pi/config.py`:
+
+| Category | Classes | Remembered? |
+|---|---|---|
+| drop | pothole, open_drain, stairs_down, curb + ultrasonic "drop" | yes; always **STOP** |
+| raised | stairs_up, speed_breaker + ultrasonic "step up" | yes |
+| static | pole, tree, wall, barrier, dustbin, bench, chair, parked vehicles | yes |
+| head | branch, signboard, anything high in the frame and close | yes |
+| moving | person, bicycle, motorcycle, car, auto_rickshaw, bus, truck, dog, cow | no (announced only) |
+| zone | construction | yes |
+
+A vehicle that has been standing still for 3 s counts as parked (static), so it gets remembered.
 
 ## Repo layout
 
 | Path | What |
 |---|---|
-| `firmware/auralis_cane/auralis_cane.ino` | ESP32 firmware: 2 ultrasonic sensors, motor, button, BLE |
-| `app/` | Phone app (plain HTML/JS, no build step) |
-| `app/memory.js` | Spatio-temporal hazard memory, places, self-built walk graph |
-| `app/router.js` | Risk-aware A* |
-| `app/fusion.js` + `fusion_weights.json` | Neural fusion inference on the phone |
-| `app/i18n.js` | Multilingual phrases + text-to-speech |
-| `ml/train_fusion.py` | Trains the fusion network (numpy only) |
-| `docs/paper_outline.md` | Research paper structure and experiments |
+| `pi/server.py` | Main program on the Pi: camera → perception → HTTPS + WebSocket server |
+| `pi/detector.py` | YOLO wrapper (custom model or stock COCO) |
+| `pi/distance.py` | Distance from one camera: ground-plane geometry, known size, MiDaS depth |
+| `pi/perception.py` | Taxonomy, walking corridor, tracking / approach speed, parked-vehicle logic |
+| `pi/ultrasonic.py` | HC-SR04 drop / step detection with self-learning ground baseline |
+| `pi/config.py` | **All settings**: camera height/tilt, pins, classes, thresholds |
+| `app/` | Phone web app: voice, memory, routing, fusion network |
+| `ml/train_yolo.py` | Fine-tune YOLO on our classes (Colab) |
+| `ml/train_fusion.py` | Train the fusion network |
 
-## Hardware (about ₹1,500–2,000)
+## Setup
 
-| Part | Qty | Note |
-|---|---|---|
-| ESP32 DevKit (WROOM-32) | 1 | BLE + brains on the cane |
-| HC-SR04 (or JSN-SR04T waterproof) | 2 | front at handle height, down at 35–45° near the tip |
-| Coin vibration motor | 1–2 | in the handle |
-| 2N2222/BC547 + 1 kΩ + 1N4007 diode | 1 each | motor driver (never drive a motor from a GPIO pin) |
-| 1 kΩ + 2 kΩ resistors | 2 sets | divide the HC-SR04's 5 V echo down to 3.3 V |
-| Push button, active buzzer (optional) | 1 | "where am I" button |
-| Small power bank + USB cable | 1 | powers the ESP32 |
-| PVC pipe / old cane, phone clip or chest mount | — | the phone camera faces forward |
+### 1. Hardware
+- **Camera:** on the handle, about 90 cm high, tilted about 20° down. Measure yours and set `CAM_HEIGHT_M` / `CAM_PITCH_DEG` in `pi/config.py`, because distances depend on it.
+- **HC-SR04:** about 30–40 cm above the tip, pointing 35–45° down. Wiring: VCC → pin 2 (5 V), GND → pin 6, TRIG → GPIO23 (pin 16). ECHO goes through **1 kΩ** to GPIO24 (pin 18), with **2 kΩ** from GPIO24 to GND. The ECHO pin is 5 V, so never connect it straight to the Pi.
+- **Power:** a power bank rated 5 V 3 A into the Pi's USB-C.
 
-**Wiring.** The ultrasonic sensors take VCC 5 V (from VIN/5V) and GND.
-
-| Sensor | TRIG | ECHO | Motor | Buzzer | Button |
-|---|---|---|---|---|---|
-| Front | GPIO5 | GPIO18 (through divider) | | | |
-| Down | GPIO19 | GPIO21 (through divider) | | | |
-| ESP32 pin | | | GPIO25 → 1 kΩ → transistor base | GPIO26 | GPIO27 → GND |
-
-For the motor, connect the transistor's emitter to GND, the collector to the motor's (−) lead, and the motor's (+) lead to 3.3 V/5 V. Put the diode across the motor.
-
-## Running it
-
-**Firmware.** In Arduino IDE, install the ESP32 boards, open `firmware/auralis_cane/auralis_cane.ino`, choose "ESP32 Dev Module" and upload. The motor buzzes twice when it boots.
-
-**App.** Web Bluetooth and the camera both need HTTPS, so host it on GitHub Pages (Settings → Pages → this branch, `/app`). You can also run `npx http-server app` and use `chrome://inspect` port forwarding to `localhost`. Then:
-
-1. Open the app in **Chrome on Android**. iOS Safari has no Web Bluetooth; there you would need the Bluefy browser.
-2. Install the voice packs once: Settings → Text-to-speech → Google → install Hindi, Telugu and Tamil.
-3. Tap Connect cane → Start walking, then save places and walk your demo routes once.
-
-**Retraining the network.** Collect labelled rows in Research mode, then run:
-
-```
-pip install numpy
-python ml/train_fusion.py --real auralis_training.csv
+### 2. Pi software (once)
+Install Raspberry Pi OS 64-bit (Bookworm) and make sure the camera works (`rpicam-hello`). Then:
+```bash
+git clone https://github.com/Lakshya0104/Auralis-.git && cd Auralis-/pi
+bash setup_pi.sh
 ```
 
-## 3-day plan
+### 3. Run
+1. Turn on the **phone's hotspot** and connect the Pi to it (set up Wi-Fi once in `raspi-config`).
+2. On the Pi:
+   ```bash
+   cd Auralis-/pi && source venv/bin/activate && python server.py
+   ```
+   It prints `Open on the phone: https://<ip>:8443/`.
+3. On the phone, open that address in **Chrome**. It shows a certificate warning because the Pi uses its own certificate: tap *Advanced → Proceed*. This is needed because GPS and the microphone only work over HTTPS.
+4. Pick a language, connect your Bluetooth earphones, and tap **Start walking**.
+5. Optional, to run it automatically at boot: `crontab -e` and add `@reboot cd /home/pi/Auralis-/pi && venv/bin/python server.py`.
 
-- **Day 1:** Wire the ESP32, both sensors and the motor, flash the firmware, and test distances with Serial Monitor. Host the app and connect over BLE.
-- **Day 2:** Build the cane (PVC, mounts, phone clip). Walk 2 campus routes and save places. Put safe cardboard "obstacles" on the short route so hazards get remembered. Collect about 300 labelled rows and retrain.
-- **Day 3:** Run the experiments in `docs/paper_outline.md`, take screenshots and a demo video, and write the paper.
+Install the voice packs once on the phone: Settings → Text-to-speech → Google → install Hindi, Telugu and Tamil.
 
-## Honest limits (put these in the paper)
+### Testing without the Pi
+```bash
+cd pi && pip install aiohttp numpy opencv-python-headless onnxruntime
+python server.py --simulate          # fake pole + person + a pit every 20 s
+python server.py --video walk.mp4    # run the real model on a recorded video (needs ultralytics)
+```
 
-- COCO-SSD knows people, vehicles, animals, benches and similar objects. It does **not** know potholes. Those come from the downward ultrasonic "drop" detection. A custom YOLO pothole model is future work.
-- Phone GPS is accurate to about ±5–10 m, which is fine for "hazard ahead" memory but not for precise sidewalk steering.
-- The bootstrap network is trained on synthetic data labelled by expert rules. Your field data is what makes it a real learned model, so report both.
+## Training the neural networks
+
+**NN 1, YOLO (custom classes).** The stock model already knows person, vehicles and animals. For pothole, drain, stairs, curb, pole and similar classes:
+1. Download YOLO-format datasets for those classes from Roboflow Universe or Kaggle.
+2. Add 100–200 photos taken from cane height on your campus.
+3. Remap the label ids to the order in `ml/data.yaml` and put everything in `datasets/auralis/`.
+4. On Colab, run `python ml/train_yolo.py pseudo`, then `train`, then `export`.
+5. Copy `pi/models/auralis_yolo*` to the Pi.
+
+The `pseudo` step auto-labels people and vehicles in your images with a bigger COCO model, so the fine-tuned model doesn't forget them.
+
+**NN 2, MiDaS depth.** It's pre-trained, and `setup_pi.sh` downloads it. Its relative depth is scaled to metres every frame using the geometric estimates.
+
+**NN 3, fusion MLP.** Train it with `python ml/train_fusion.py`, or with `--real auralis_training.csv` once you've labelled field data in the app's *Research mode*.
+
+## Safety rules built in
+- A drop or pit closer than 1.5 m is always **STOP**. The network can raise an alert level but never lower this one.
+- If the Pi stream stops for more than 3 s, the phone says "Camera link lost" and vibrates. It never goes silent without warning.
+- People and moving vehicles are never stored as hazards.

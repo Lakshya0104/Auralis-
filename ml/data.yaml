@@ -1,0 +1,33 @@
+# AURALIS obstacle classes (order = label id). Must match pi/config.py CLASSES.
+path: datasets/auralis
+train: train/images
+val: valid/images
+names:
+  - pothole
+  - open_drain
+  - stairs_down
+  - curb
+  - stairs_up
+  - speed_breaker
+  - pole
+  - tree
+  - wall
+  - barrier
+  - dustbin
+  - branch
+  - signboard
+  - construction
+  - auto_rickshaw
+  - person
+  - bicycle
+  - motorcycle
+  - car
+  - bus
+  - truck
+  - dog
+  - cow
+  - bench
+  - chair
+  - fire hydrant
+  - stop sign
+  - potted plant

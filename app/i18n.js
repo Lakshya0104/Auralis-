@@ -10,25 +10,48 @@ export const LANGS = {
 };
 
 const OBJECTS = {
-  en: { person: 'person', bicycle: 'bicycle', car: 'car', motorcycle: 'motorbike', bus: 'bus', truck: 'truck',
+  en: {
+        pothole: 'pothole', open_drain: 'open drain', stairs_down: 'stairs going down', curb: 'kerb edge',
+        stairs_up: 'stairs going up', step_up: 'step up', speed_breaker: 'speed breaker', pole: 'pole', tree: 'tree',
+        wall: 'wall', barrier: 'barrier', dustbin: 'dustbin', branch: 'branch', signboard: 'signboard',
+        construction: 'construction work', auto_rickshaw: 'auto rickshaw',
+        person: 'person', bicycle: 'bicycle', car: 'car', motorcycle: 'motorbike', bus: 'bus', truck: 'truck',
         dog: 'dog', cow: 'cow', chair: 'chair', bench: 'bench', 'fire hydrant': 'pole', 'stop sign': 'sign board',
         'potted plant': 'plant pot', obstacle: 'obstacle', drop: 'step down or pit', 'traffic light': 'traffic signal' },
-  hi: { person: 'व्यक्ति', bicycle: 'साइकिल', car: 'कार', motorcycle: 'मोटरसाइकिल', bus: 'बस', truck: 'ट्रक',
+  hi: {
+        pothole: 'गड्ढा', open_drain: 'खुला नाला', stairs_down: 'नीचे जाती सीढ़ियाँ', curb: 'फुटपाथ का किनारा',
+        stairs_up: 'ऊपर जाती सीढ़ियाँ', step_up: 'ऊँचा कदम', speed_breaker: 'स्पीड ब्रेकर', pole: 'खंभा', tree: 'पेड़',
+        wall: 'दीवार', barrier: 'बैरियर', dustbin: 'कूड़ेदान', branch: 'डाली', signboard: 'साइनबोर्ड',
+        construction: 'निर्माण कार्य', auto_rickshaw: 'ऑटो रिक्शा',
+        person: 'व्यक्ति', bicycle: 'साइकिल', car: 'कार', motorcycle: 'मोटरसाइकिल', bus: 'बस', truck: 'ट्रक',
         dog: 'कुत्ता', cow: 'गाय', chair: 'कुर्सी', bench: 'बेंच', 'fire hydrant': 'खंभा', 'stop sign': 'बोर्ड',
         'potted plant': 'गमला', obstacle: 'रुकावट', drop: 'गड्ढा या सीढ़ी', 'traffic light': 'ट्रैफिक सिग्नल' },
-  te: { person: 'వ్యక్తి', bicycle: 'సైకిల్', car: 'కారు', motorcycle: 'బైక్', bus: 'బస్సు', truck: 'లారీ',
+  te: {
+        pothole: 'గుంత', open_drain: 'తెరిచిన కాలువ', stairs_down: 'కిందికి మెట్లు', curb: 'ఫుట్‌పాత్ అంచు',
+        stairs_up: 'పైకి మెట్లు', step_up: 'ఎత్తైన మెట్టు', speed_breaker: 'స్పీడ్ బ్రేకర్', pole: 'స్తంభం', tree: 'చెట్టు',
+        wall: 'గోడ', barrier: 'అడ్డుకట్ట', dustbin: 'చెత్త డబ్బా', branch: 'కొమ్మ', signboard: 'బోర్డు',
+        construction: 'నిర్మాణ పనులు', auto_rickshaw: 'ఆటో',
+        person: 'వ్యక్తి', bicycle: 'సైకిల్', car: 'కారు', motorcycle: 'బైక్', bus: 'బస్సు', truck: 'లారీ',
         dog: 'కుక్క', cow: 'ఆవు', chair: 'కుర్చీ', bench: 'బెంచ్', 'fire hydrant': 'స్తంభం', 'stop sign': 'బోర్డు',
         'potted plant': 'కుండీ', obstacle: 'అడ్డంకి', drop: 'గుంత లేదా మెట్టు', 'traffic light': 'ట్రాఫిక్ సిగ్నల్' },
-  ta: { person: 'நபர்', bicycle: 'சைக்கிள்', car: 'கார்', motorcycle: 'பைக்', bus: 'பேருந்து', truck: 'லாரி',
+  ta: {
+        pothole: 'பள்ளம்', open_drain: 'திறந்த கால்வாய்', stairs_down: 'கீழே இறங்கும் படிகள்', curb: 'நடைபாதை ஓரம்',
+        stairs_up: 'மேலே ஏறும் படிகள்', step_up: 'உயரமான படி', speed_breaker: 'வேகத்தடை', pole: 'கம்பம்', tree: 'மரம்',
+        wall: 'சுவர்', barrier: 'தடுப்பு', dustbin: 'குப்பைத் தொட்டி', branch: 'கிளை', signboard: 'பலகை',
+        construction: 'கட்டுமானப் பணி', auto_rickshaw: 'ஆட்டோ',
+        person: 'நபர்', bicycle: 'சைக்கிள்', car: 'கார்', motorcycle: 'பைக்', bus: 'பேருந்து', truck: 'லாரி',
         dog: 'நாய்', cow: 'மாடு', chair: 'நாற்காலி', bench: 'பெஞ்ச்', 'fire hydrant': 'கம்பம்', 'stop sign': 'பலகை',
         'potted plant': 'தொட்டி', obstacle: 'தடை', drop: 'குழி அல்லது படி', 'traffic light': 'சிக்னல்' },
 };
 
 const PHRASES = {
   en: {
-    ahead: (o, m) => `${o} ahead, ${m} metres`,
-    left: (o, m) => `${o} on your left, ${m} metres`,
-    right: (o, m) => `${o} on your right, ${m} metres`,
+    head: (o, m) => `${o} at head height, ${m} ${m === 1 ? 'metre' : 'metres'}`,
+    approaching: (o) => `${o} coming towards you`,
+    linkLost: 'Camera link lost. Use your cane carefully.',
+    ahead: (o, m) => `${o} ahead, ${m} ${m === 1 ? 'metre' : 'metres'}`,
+    left: (o, m) => `${o} on your left, ${m} ${m === 1 ? 'metre' : 'metres'}`,
+    right: (o, m) => `${o} on your right, ${m} ${m === 1 ? 'metre' : 'metres'}`,
     stop: (o) => `Stop. ${o}`,
     remembered: (o, m) => `Careful. Remembered ${o}, ${m} metres ahead`,
     saved: (p) => `Saved ${p}`,
@@ -40,6 +63,9 @@ const PHRASES = {
     whereAmI: (p, m) => `Nearest saved place is ${p}, ${m} metres away`,
   },
   hi: {
+    head: (o, m) => `सिर की ऊँचाई पर ${o}, ${m} मीटर`,
+    approaching: (o) => `${o} आपकी ओर आ रहा है`,
+    linkLost: 'कैमरा से संपर्क टूट गया. छड़ी से सावधानी से चलिए.',
     ahead: (o, m) => `आगे ${o}, ${m} मीटर`,
     left: (o, m) => `बाईं ओर ${o}, ${m} मीटर`,
     right: (o, m) => `दाईं ओर ${o}, ${m} मीटर`,
@@ -54,6 +80,9 @@ const PHRASES = {
     whereAmI: (p, m) => `सबसे पास ${p} है, ${m} मीटर दूर`,
   },
   te: {
+    head: (o, m) => `తల ఎత్తులో ${o}, ${m} మీటర్లు`,
+    approaching: (o) => `${o} మీ వైపు వస్తోంది`,
+    linkLost: 'కెమెరా కనెక్షన్ పోయింది. కర్రతో జాగ్రత్తగా నడవండి.',
     ahead: (o, m) => `ముందు ${o}, ${m} మీటర్లు`,
     left: (o, m) => `ఎడమ వైపు ${o}, ${m} మీటర్లు`,
     right: (o, m) => `కుడి వైపు ${o}, ${m} మీటర్లు`,
@@ -68,6 +97,9 @@ const PHRASES = {
     whereAmI: (p, m) => `దగ్గరలో ${p}, ${m} మీటర్ల దూరం`,
   },
   ta: {
+    head: (o, m) => `தலை உயரத்தில் ${o}, ${m} மீட்டர்`,
+    approaching: (o) => `${o} உங்களை நோக்கி வருகிறது`,
+    linkLost: 'கேமரா இணைப்பு துண்டிக்கப்பட்டது. கைத்தடியுடன் கவனமாக நடக்கவும்.',
     ahead: (o, m) => `முன்னால் ${o}, ${m} மீட்டர்`,
     left: (o, m) => `இடது பக்கம் ${o}, ${m} மீட்டர்`,
     right: (o, m) => `வலது பக்கம் ${o}, ${m} மீட்டர்`,
