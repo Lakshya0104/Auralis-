@@ -24,8 +24,6 @@ class Camera:
                 print(f"[camera] Picamera2 unavailable ({e}); trying USB webcam")
                 source = 0
         self.cap = cv2.VideoCapture(source, cv2.CAP_V4L2) if isinstance(source, int) else cv2.VideoCapture(source)
-        if isinstance(source, int):
-            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # faster on USB webcams
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_W)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_H)
         self.loop_file = isinstance(source, str)
