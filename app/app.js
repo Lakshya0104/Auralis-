@@ -21,7 +21,7 @@ const state = {
   mode: 'connecting', walking: false, pos: null, heading: null, frame: null, primary: null, features: null,
   level: 0, lastAlert: 0, lastLevel: 0, alerts: [], guiding: null, training: [], lastMemWarn: new Map(),
   lastFrameAt: 0, demoStart: Date.now(), walkStart: 0, walkOffset: 0, fusionOn: false,
-  vib: store.get('vib', true), simWalk: store.get('simwalk', false), lead: null, walkTimer: null,
+  vib: store.get('vib', true), simWalk: store.get('simwalk', false), phoneVoice: store.get('phonevoice', false), lead: null, walkTimer: null,
 };
 
 // ---------- text ----------
@@ -53,6 +53,7 @@ function applyTexts() {
   $('vibL').textContent = u('vibration');
   $('demoL').textContent = u('demoMode'); $('demoHint').textContent = u('demoHint');
   $('simwalkL').textContent = u('simwalk'); $('simwalkHint').textContent = u('simwalkHint');
+  $('phonevoiceL').textContent = u('phoneVoice'); $('phonevoiceHint').textContent = u('phoneVoiceHint');
   $('mapTitle').textContent = u('mapTitle');
   const lg = u('mapLegend');
   $('mapLegend').innerHTML = `<span><i style="background:var(--accent)"></i>${lg[0]}</span><span><i style="background:var(--accent);border-radius:3px"></i>${lg[1]}</span>`
@@ -192,7 +193,7 @@ function onFrame(f) {
     const now = Date.now();
     const cooldown = [Infinity, 6000, 3000, 1500][level];
     if (level > state.lastLevel || now - state.lastAlert > cooldown) {
-      if (!f.piVoice) {
+      if (!f.piVoice || state.phoneVoice) {
         const text = phrase(o, level);
         speak(text, level === 3 ? 2 : 1);
         vibrate(VIBRATION[level]);
@@ -457,12 +458,17 @@ function renderSettings() {
   $('rate').value = store.get('rate', 1); $('rateV').textContent = `${(+$('rate').value).toFixed(1)}×`;
   $('vib').checked = state.vib;
   $('simwalk').checked = state.simWalk;
+  $('phonevoice').checked = state.phoneVoice;
   $('demo').checked = state.mode === 'demo';
   $('rowsCount').textContent = u('rows', state.training.length);
   $('modelInfo').textContent = `${u('model')}: ${state.fusionOn ? u('modelOn') : u('modelOff')}`;
 }
 $('rate').oninput = () => { const r = +$('rate').value; setRate(r); store.set('rate', r); $('rateV').textContent = `${r.toFixed(1)}×`; };
 $('vib').onchange = () => { state.vib = $('vib').checked; store.set('vib', state.vib); };
+$('phonevoice').onchange = () => {
+  state.phoneVoice = $('phonevoice').checked; store.set('phonevoice', state.phoneVoice);
+  if (state.phoneVoice) speak(t('connected'));   // also unlocks speech in the browser
+};
 $('simwalk').onchange = () => { state.simWalk = $('simwalk').checked; store.set('simwalk', state.simWalk); applySimWalk(); };
 function applySimWalk() {
   if (state.mode === 'demo') return;

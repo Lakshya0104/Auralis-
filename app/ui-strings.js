@@ -4,6 +4,7 @@ import { getLang } from './i18n.js';
 
 const UI = {
   en: {
+    phoneVoice: 'Speak on this phone', phoneVoiceHint: 'Read alerts aloud here too (phone speaker or Bluetooth earphones), not only on the cane.',
     mapTitle: 'Map', mapLegend: ['You', 'Saved place', 'Remembered hazard', 'Learned path'],
     simwalk: 'Classroom walk', simwalkHint: 'Indoors GPS cannot move. Walk a recorded route on the map while the camera stays live.',
     leadTitle: 'Location intelligence', leadCam: 'Camera alone', leadMem: 'With memory',
@@ -39,6 +40,7 @@ const UI = {
     connection: 'Connection', fps: 'frames/s',
   },
   hi: {
+    phoneVoice: 'इस फ़ोन पर बोलें', phoneVoiceHint: 'सूचनाएँ यहाँ भी बोलें (फ़ोन स्पीकर या ब्लूटूथ ईयरफ़ोन), सिर्फ़ छड़ी पर नहीं.',
     mapTitle: 'नक्शा', mapLegend: ['आप', 'सेव जगह', 'याद रखा खतरा', 'सीखा हुआ रास्ता'],
     simwalk: 'कक्षा डेमो चाल', simwalkHint: 'घर के अंदर GPS नहीं चलता. कैमरा चालू रहते हुए नक्शे पर रिकॉर्ड किया रास्ता चलें.',
     leadTitle: 'लोकेशन इंटेलिजेंस', leadCam: 'सिर्फ़ कैमरा', leadMem: 'याददाश्त के साथ',
@@ -74,6 +76,7 @@ const UI = {
     connection: 'कनेक्शन', fps: 'फ्रेम/सेकंड',
   },
   te: {
+    phoneVoice: 'ఈ ఫోన్‌లో మాట్లాడు', phoneVoiceHint: 'హెచ్చరికలను ఇక్కడ కూడా చదవండి (ఫోన్ స్పీకర్ లేదా బ్లూటూత్ ఇయర్‌ఫోన్లు), కర్రపై మాత్రమే కాదు.',
     mapTitle: 'మ్యాప్', mapLegend: ['మీరు', 'సేవ్ చేసిన చోటు', 'గుర్తుంచుకున్న ప్రమాదం', 'నేర్చుకున్న దారి'],
     simwalk: 'తరగతి డెమో నడక', simwalkHint: 'లోపల GPS కదలదు. కెమెరా పనిచేస్తూనే మ్యాప్‌పై రికార్డ్ చేసిన దారిలో నడవండి.',
     leadTitle: 'లొకేషన్ ఇంటెలిజెన్స్', leadCam: 'కెమెరా మాత్రమే', leadMem: 'జ్ఞాపకంతో',
@@ -109,6 +112,7 @@ const UI = {
     connection: 'కనెక్షన్', fps: 'ఫ్రేమ్‌లు/సె',
   },
   ta: {
+    phoneVoice: 'இந்த போனில் பேசு', phoneVoiceHint: 'எச்சரிக்கைகளை இங்கும் படிக்கவும் (போன் ஸ்பீக்கர் அல்லது புளூடூத் இயர்போன்), கைத்தடியில் மட்டுமல்ல.',
     mapTitle: 'வரைபடம்', mapLegend: ['நீங்கள்', 'சேமித்த இடம்', 'நினைவில் உள்ள ஆபத்து', 'கற்ற வழி'],
     simwalk: 'வகுப்பறை டெமோ நடை', simwalkHint: 'உள்ளே GPS நகராது. கேமரா இயங்கும்போதே வரைபடத்தில் பதிவு செய்த வழியில் நடக்கவும்.',
     leadTitle: 'இருப்பிட நுண்ணறிவு', leadCam: 'கேமரா மட்டும்', leadMem: 'நினைவகத்துடன்',
