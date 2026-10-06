@@ -129,6 +129,20 @@ export const setRate = (r) => { rate = r; };
 let lastSpoken = '';
 let lastAt = 0;
 // priority: 0 = info, 1 = warning, 2 = urgent (interrupts)
+function voiceFor(l) {
+  const voices = speechSynthesis.getVoices();
+  const code = LANGS[l].code.toLowerCase(), base = code.split('-')[0];
+  return voices.find((v) => v.lang.toLowerCase().replace('_', '-') === code)
+      || voices.find((v) => v.lang.toLowerCase().startsWith(base)) || null;
+}
+// true if this device has a voice for the language (or we cannot tell yet)
+export function hasVoice(l) {
+  if (!('speechSynthesis' in window)) return false;
+  const voices = speechSynthesis.getVoices();
+  return !voices.length || !!voiceFor(l);
+}
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};   // makes Chrome load the voice list
+
 export function speak(text, priority = 0) {
   if (!('speechSynthesis' in window)) return;
   const now = Date.now();
@@ -139,6 +153,8 @@ export function speak(text, priority = 0) {
   }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = LANGS[lang].code;
+  const v = voiceFor(lang);   // pick an installed voice for the language explicitly (Chrome may not)
+  if (v) u.voice = v;
   u.rate = rate * (priority === 2 ? 1.15 : 1);
   speechSynthesis.speak(u);
   lastSpoken = text;

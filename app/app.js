@@ -1,4 +1,4 @@
-import { LANGS, setLang, getLang, setRate, t, obj, speak } from './i18n.js';
+import { LANGS, setLang, getLang, setRate, t, obj, speak, hasVoice } from './i18n.js';
 import { u, ago } from './ui-strings.js';
 import * as mem from './memory.js';
 import { route } from './router.js';
@@ -85,8 +85,10 @@ function renderLangs(box, onPick) {
   }
 }
 
+function sendLang() { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ lang: getLang() })); } catch {} }
 function chooseLang(k) {
-  setLang(k); store.set('lang', k);
+  setLang(k); store.set('lang', k); sendLang();
+  if (!hasVoice(k)) toast(`No ${LANGS[k].english} voice on this device: Settings → Text-to-speech → Google → install ${LANGS[k].english}`);
   applyTexts();
   speak(LANGS[k].name);
 }
@@ -103,7 +105,7 @@ function connectPi() {
     opened = true; clearTimeout(giveUp);
     stopDemo(); state.mode = 'pi'; mem.useStore('auralis-memory-v1'); applySimWalk();
     $('camera').src = '/video.mjpg';
-    renderConn(); applyTexts();
+    renderConn(); applyTexts(); sendLang();
     if (state.walking) speak(t('connected'));
   };
   ws.onmessage = (e) => { if (state.mode === 'pi') onFrame(JSON.parse(e.data)); };

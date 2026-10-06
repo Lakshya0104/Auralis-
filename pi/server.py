@@ -31,6 +31,7 @@ ROOT = pathlib.Path(__file__).resolve().parent
 APP_DIR = ROOT.parent / "app"
 latest = {"obstacles": [], "ultra": {}, "fps": 0, "t": 0, "announced": None, "piVoice": False}
 latest_jpeg = None
+speaker = None   # set by perception_loop; the app can change its language
 COLORS = {"drop": (0, 0, 255), "raised": (0, 140, 255), "static": (0, 220, 255),
           "head": (255, 0, 255), "moving": (255, 160, 0), "zone": (180, 180, 180)}
 
@@ -41,6 +42,7 @@ def perception_loop(args):
     det = Detector(simulate=args.simulate)
     us = Ultrasonic(simulate=args.simulate)
     depth = DepthNet()
+    global speaker
     speaker = Speaker(args.lang, enabled=not args.no_voice)
     announcer = Announcer(speaker, ANNOUNCE_WITHIN_M, REPEAT_AFTER_S)
     speaker.say(PHRASES[args.lang]["ready"])
@@ -76,12 +78,27 @@ def perception_loop(args):
 async def ws_handler(request):
     ws = web.WebSocketResponse(heartbeat=10)
     await ws.prepare(request)
+    async def receive():
+        # the app sends {"lang": "ta"} when the user picks a language -> the Pi speaks that language
+        async for msg in ws:
+            try:
+                lang = json.loads(msg.data).get("lang")
+            except Exception:
+                continue
+            if speaker and lang in PHRASES and lang != speaker.lang:
+                speaker.lang = lang
+                speaker.say(PHRASES[lang]["ready"])
+                print(f"[voice] language -> {lang}")
+    reader = asyncio.ensure_future(receive())
     last = 0
-    while not ws.closed:
-        if latest["t"] != last:
-            last = latest["t"]
-            await ws.send_str(json.dumps(latest))
-        await asyncio.sleep(0.05)
+    try:
+        while not ws.closed:
+            if latest["t"] != last:
+                last = latest["t"]
+                await ws.send_str(json.dumps(latest))
+            await asyncio.sleep(0.05)
+    finally:
+        reader.cancel()
     return ws
 
 
