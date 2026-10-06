@@ -8,6 +8,8 @@ class Camera:
     def __init__(self, source=None):
         self.picam = None
         self.cap = None
+        if isinstance(source, str) and source.isdigit():   # --video 0  = USB webcam via OpenCV
+            source = int(source)
         if source is None:
             try:
                 from picamera2 import Picamera2
@@ -23,6 +25,8 @@ class Camera:
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_W)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_H)
         self.loop_file = isinstance(source, str)
+        if not self.cap.isOpened():
+            print(f"[camera] could not open {source}")
 
     def read(self):
         """Returns a BGR frame of FRAME_W x FRAME_H, or None."""
