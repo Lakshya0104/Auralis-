@@ -4,6 +4,10 @@ import pathlib
 
 MODELS = pathlib.Path(__file__).resolve().parent / "models"
 
+# ---- Camera -------------------------------------------------------------------
+CAMERA = "usb"             # "usb" = USB webcam (OpenCV), "pi" = Raspberry Pi camera module (Picamera2)
+USB_CAMERA_INDEX = 0       # if the webcam is not found, try 1
+
 # ---- Camera mounting (measure on your cane) --------------------------------
 FRAME_W, FRAME_H = 640, 480
 CAM_HFOV_DEG = 66          # Pi Camera Module 3 standard lens (v2 camera: 62)
