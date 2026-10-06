@@ -1,5 +1,5 @@
 aiohttp>=3.9
-numpy
-onnxruntime
-ultralytics>=8.1
-ncnn
+onnxruntime>=1.16
+# numpy and opencv come from apt (python3-opencv) so they match each other
+# optional, only for a custom model trained with ml/AURALIS_train_yolo.ipynb:
+#   ultralytics

@@ -1,7 +1,7 @@
 """Turns detections + distances + ultrasonic into obstacles (taxonomy, corridor, motion)."""
 import time
 
-from config import (CLASSES, CORRIDOR_WIDTH_M, MAX_RANGE_M, FRAME_H, FRAME_W, PARKABLE,
+from config import (US_MODE, US_FRONT_ALERT_CM, CLASSES, CORRIDOR_WIDTH_M, MAX_RANGE_M, FRAME_H, FRAME_W, PARKABLE,
                     DROP, RAISED, STATIC, HEAD, MOVING)
 from distance import estimate, lateral_offset_m
 
@@ -61,8 +61,20 @@ def perceive(detections, ultra, depthnet):
             "box": [round(v) for v in o["box"]],
             "remember": category != MOVING,
         })
-    # The ultrasonic sensor sees drops / raised ground the camera may miss
-    if ultra["drop"]:
+    if US_MODE == "front":
+        # Forward ultrasonic: exact distance for whatever is straight ahead. It corrects the camera's
+        # estimate for a centred object, and catches obstacles the camera does not recognise.
+        cm = ultra.get("cm")
+        if cm is not None and cm < 300:
+            centred = [o for o in out if o["inCorridor"] and o["side"] == "ahead" and abs(o["dist"] - cm / 100) < 1.0]
+            for o in centred:
+                o["dist"], o["method"] = round(cm / 100, 2), "ultrasonic+camera"
+            if not centred and cm < US_FRONT_ALERT_CM:
+                out.append({"cls": "obstacle", "category": STATIC, "severity": 0.6, "conf": 0.9, "dist": round(cm / 100, 2),
+                            "method": "ultrasonic", "lateral": 0, "side": "ahead", "approach": 0, "inCorridor": True,
+                            "area": 0, "offset": 0, "box": None, "remember": True})
+    # Downward ultrasonic: drops / raised ground the camera may miss
+    elif ultra["drop"]:
         out.append({"cls": "drop", "category": DROP, "severity": 1.0, "conf": 0.95, "dist": 0.5, "method": "ultrasonic",
                     "lateral": 0, "side": "ahead", "approach": 0, "inCorridor": True, "area": 0, "offset": 0,
                     "box": None, "remember": True})

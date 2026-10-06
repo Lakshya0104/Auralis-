@@ -24,11 +24,12 @@ from detector import Detector
 from distance import DepthNet
 from perception import perceive
 from ultrasonic import Ultrasonic
-from config import DEPTH_EVERY_N
+from config import DEPTH_EVERY_N, VOICE_LANG, ANNOUNCE_WITHIN_M, REPEAT_AFTER_S
+from speaker import Speaker, Announcer, PHRASES
 
 ROOT = pathlib.Path(__file__).resolve().parent
 APP_DIR = ROOT.parent / "app"
-latest = {"obstacles": [], "ultra": {}, "fps": 0, "t": 0}
+latest = {"obstacles": [], "ultra": {}, "fps": 0, "t": 0, "announced": None, "piVoice": False}
 latest_jpeg = None
 COLORS = {"drop": (0, 0, 255), "raised": (0, 140, 255), "static": (0, 220, 255),
           "head": (255, 0, 255), "moving": (255, 160, 0), "zone": (180, 180, 180)}
@@ -40,6 +41,9 @@ def perception_loop(args):
     det = Detector(simulate=args.simulate)
     us = Ultrasonic(simulate=args.simulate)
     depth = DepthNet()
+    speaker = Speaker(args.lang, enabled=not args.no_voice)
+    announcer = Announcer(speaker, ANNOUNCE_WITHIN_M, REPEAT_AFTER_S)
+    speaker.say(PHRASES[args.lang]["ready"])
     n, t_last = 0, time.time()
     fps = 0.0
     while True:
@@ -53,7 +57,11 @@ def perception_loop(args):
         now = time.time()
         fps = 0.8 * fps + 0.2 / max(now - t_last, 1e-3)
         t_last = now
-        latest = {"obstacles": obstacles, "ultra": us.state(), "fps": round(fps, 1), "t": now}
+        said = announcer.update(obstacles)          # novelty 1: "<object> detected ahead, 2 metres"
+        if said:
+            print(f"[voice] {said['text']}  (detector {det.last_ms:.0f} ms)")
+        latest = {"obstacles": obstacles, "ultra": us.state(), "fps": round(fps, 1), "t": now,
+                  "detMs": round(det.last_ms), "announced": said, "piVoice": speaker.enabled}
         for o in obstacles:
             if o["box"]:
                 x1, y1, x2, y2 = o["box"]
@@ -128,6 +136,8 @@ def main():
     ap.add_argument("--video", help="use a video file instead of the camera")
     ap.add_argument("--port", type=int, default=8443)
     ap.add_argument("--http", action="store_true", help="plain HTTP (GPS will not work on the phone)")
+    ap.add_argument("--lang", default=VOICE_LANG, choices=["en", "hi", "te", "ta"], help="voice language on the Pi")
+    ap.add_argument("--no-voice", action="store_true", help="let the phone speak instead of the Pi")
     args = ap.parse_args()
 
     threading.Thread(target=perception_loop, args=(args,), daemon=True).start()
@@ -139,7 +149,8 @@ def main():
     app.router.add_get("/app/index.html", app_page)
     app.router.add_static("/app", APP_DIR)
     scheme = "http" if args.http else "https"
-    print(f"\n  Open on the phone:  {scheme}://{local_ip()}:{args.port}/\n")
+    print(f"\n  On the Pi screen / projector:  {scheme}://localhost:{args.port}/")
+    print(f"  On a phone (same Wi-Fi):      {scheme}://{local_ip()}:{args.port}/\n")
     web.run_app(app, port=args.port, ssl_context=None if args.http else ssl_context(), print=None)
 
 

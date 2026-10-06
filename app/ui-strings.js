@@ -4,6 +4,11 @@ import { getLang } from './i18n.js';
 
 const UI = {
   en: {
+    mapTitle: 'Map', mapLegend: ['You', 'Saved place', 'Remembered hazard', 'Learned path'],
+    simwalk: 'Classroom walk', simwalkHint: 'Indoors GPS cannot move. Walk a recorded route on the map while the camera stays live.',
+    leadTitle: 'Location intelligence', leadCam: 'Camera alone', leadMem: 'With memory',
+    leadHint: 'Remembered hazards are announced from memory as you approach, long before the camera can see them.',
+    secondsEarly: (s) => `${s} s before reaching it`, cameraRange: 'when it comes into view',
     tagline: 'The cane that remembers',
     connected: 'Cane connected', demo: 'Demo', offline: 'Not connected',
     demoBanner: 'Demo mode: simulated cane data. Connect to your cane to use it for real.',
@@ -34,6 +39,11 @@ const UI = {
     connection: 'Connection', fps: 'frames/s',
   },
   hi: {
+    mapTitle: 'नक्शा', mapLegend: ['आप', 'सेव जगह', 'याद रखा खतरा', 'सीखा हुआ रास्ता'],
+    simwalk: 'कक्षा डेमो चाल', simwalkHint: 'घर के अंदर GPS नहीं चलता. कैमरा चालू रहते हुए नक्शे पर रिकॉर्ड किया रास्ता चलें.',
+    leadTitle: 'लोकेशन इंटेलिजेंस', leadCam: 'सिर्फ़ कैमरा', leadMem: 'याददाश्त के साथ',
+    leadHint: 'याद रखे गए खतरे पास आते ही याददाश्त से बताए जाते हैं, कैमरा को दिखने से बहुत पहले.',
+    secondsEarly: (s) => `पहुँचने से ${s} सेकंड पहले`, cameraRange: 'दिखाई देने पर',
     tagline: 'छड़ी जो याद रखती है',
     connected: 'छड़ी जुड़ी है', demo: 'डेमो', offline: 'छड़ी नहीं जुड़ी',
     demoBanner: 'डेमो मोड: नकली डेटा. असली उपयोग के लिए अपनी छड़ी से जोड़ें.',
@@ -64,6 +74,11 @@ const UI = {
     connection: 'कनेक्शन', fps: 'फ्रेम/सेकंड',
   },
   te: {
+    mapTitle: 'మ్యాప్', mapLegend: ['మీరు', 'సేవ్ చేసిన చోటు', 'గుర్తుంచుకున్న ప్రమాదం', 'నేర్చుకున్న దారి'],
+    simwalk: 'తరగతి డెమో నడక', simwalkHint: 'లోపల GPS కదలదు. కెమెరా పనిచేస్తూనే మ్యాప్‌పై రికార్డ్ చేసిన దారిలో నడవండి.',
+    leadTitle: 'లొకేషన్ ఇంటెలిజెన్స్', leadCam: 'కెమెరా మాత్రమే', leadMem: 'జ్ఞాపకంతో',
+    leadHint: 'గుర్తుంచుకున్న ప్రమాదాలు దగ్గరకు వస్తుండగానే జ్ఞాపకం నుండి చెప్పబడతాయి, కెమెరాకు కనిపించడానికి చాలా ముందే.',
+    secondsEarly: (s) => `చేరడానికి ${s} సె ముందు`, cameraRange: 'కనిపించినప్పుడు',
     tagline: 'గుర్తుంచుకునే కర్ర',
     connected: 'కర్ర కనెక్ట్ అయింది', demo: 'డెమో', offline: 'కర్ర కనెక్ట్ కాలేదు',
     demoBanner: 'డెమో మోడ్: నమూనా డేటా. నిజంగా వాడటానికి మీ కర్రకు కనెక్ట్ చేయండి.',
@@ -94,6 +109,11 @@ const UI = {
     connection: 'కనెక్షన్', fps: 'ఫ్రేమ్‌లు/సె',
   },
   ta: {
+    mapTitle: 'வரைபடம்', mapLegend: ['நீங்கள்', 'சேமித்த இடம்', 'நினைவில் உள்ள ஆபத்து', 'கற்ற வழி'],
+    simwalk: 'வகுப்பறை டெமோ நடை', simwalkHint: 'உள்ளே GPS நகராது. கேமரா இயங்கும்போதே வரைபடத்தில் பதிவு செய்த வழியில் நடக்கவும்.',
+    leadTitle: 'இருப்பிட நுண்ணறிவு', leadCam: 'கேமரா மட்டும்', leadMem: 'நினைவகத்துடன்',
+    leadHint: 'நினைவில் உள்ள ஆபத்துகள் நெருங்கும்போதே நினைவகத்திலிருந்து சொல்லப்படும், கேமராவுக்குத் தெரிவதற்கு வெகு முன்பே.',
+    secondsEarly: (s) => `அடைவதற்கு ${s} வி முன்`, cameraRange: 'கண்ணில் படும்போது',
     tagline: 'நினைவில் வைக்கும் கைத்தடி',
     connected: 'கைத்தடி இணைந்தது', demo: 'டெமோ', offline: 'கைத்தடி இணையவில்லை',
     demoBanner: 'டெமோ முறை: மாதிரித் தரவு. உண்மையாகப் பயன்படுத்த உங்கள் கைத்தடியை இணைக்கவும்.',

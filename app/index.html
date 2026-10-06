@@ -157,6 +157,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .labelgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .labelgrid button { min-height: 56px; border-radius: 14px; border: 0; font-weight: 700; }
 .mono { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+#map { height: 340px; border-radius: 14px; background: var(--sunken); z-index: 1; }
+.leaflet-container { font: inherit; background: var(--sunken); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--ink); }
+.me-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 3px solid var(--surface); box-shadow: 0 0 0 6px rgb(15 95 88 / 25%); }
+.place-pin { background: var(--accent); color: var(--accent-ink); border-radius: 10px; padding: 2px 8px; font-weight: 700; font-size: 12px; white-space: nowrap; border: 2px solid var(--surface); }
 #camera { width: 100%; border-radius: 12px; display: block; background: var(--sunken); min-height: 60px; margin-top: 10px; }
 details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
 
@@ -240,6 +245,11 @@ details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: 
   <!-- PLACES -->
   <section class="screen" id="tab-places" hidden>
     <h1 class="screen-title" id="placesTitle"></h1>
+    <div class="card mapcard">
+      <h2 id="mapTitle"></h2>
+      <div id="map" role="img" aria-label="Map"></div>
+      <div class="legend" id="mapLegend"></div>
+    </div>
     <div id="guideBox" class="guide" hidden><div><span id="guidingLbl"></span><br><b id="guideName"></b></div><button class="small-btn" id="btnStopGuide"></button></div>
     <div class="card">
       <div class="list" id="placesList"></div>
@@ -263,6 +273,14 @@ details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: 
       <div class="stat"><b id="nPlaces">0</b><span id="nPlacesL"></span></div>
       <div class="stat"><b id="nNodes">0</b><span id="nNodesL"></span></div>
     </div>
+    <div class="card" id="leadCard">
+      <h2 id="leadTitle"></h2>
+      <div class="compare">
+        <div><span id="leadCamL"></span><b id="leadCam">≈ 3 m</b><span class="mono" id="leadCamS"></span></div>
+        <div class="best"><span id="leadMemL"></span><b id="leadMem">–</b><span class="mono" id="leadMemS"></span></div>
+      </div>
+      <p class="hint" id="leadHint"></p>
+    </div>
     <div class="card"><div class="list" id="hazList"></div></div>
   </section>
 
@@ -278,6 +296,7 @@ details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: 
       <input type="range" id="rate" min="0.7" max="1.5" step="0.1" value="1">
       <div class="setting"><div><label for="vib" id="vibL"></label></div><input type="checkbox" class="switch" id="vib" checked></div>
       <div class="setting"><div><label for="demo" id="demoL"></label><p id="demoHint"></p></div><input type="checkbox" class="switch" id="demo"></div>
+      <div class="setting"><div><label for="simwalk" id="simwalkL"></label><p id="simwalkHint"></p></div><input type="checkbox" class="switch" id="simwalk"></div>
     </div>
     <div class="card">
       <h2 id="researchTitle"></h2>
@@ -317,4 +336,5 @@ details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: 
 
 <div class="toast" id="toast" role="status" hidden></div>
 
+<script src="vendor/leaflet.js"></script>
 <script type="module" src="app.js"></script>

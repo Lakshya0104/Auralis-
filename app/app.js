@@ -21,7 +21,7 @@ const state = {
   mode: 'connecting', walking: false, pos: null, heading: null, frame: null, primary: null, features: null,
   level: 0, lastAlert: 0, lastLevel: 0, alerts: [], guiding: null, training: [], lastMemWarn: new Map(),
   lastFrameAt: 0, demoStart: Date.now(), walkStart: 0, walkOffset: 0, fusionOn: false,
-  vib: store.get('vib', true),
+  vib: store.get('vib', true), simWalk: store.get('simwalk', false), lead: null, walkTimer: null,
 };
 
 // ---------- text ----------
@@ -52,6 +52,13 @@ function applyTexts() {
   $('rateL').textContent = u('speechRate');
   $('vibL').textContent = u('vibration');
   $('demoL').textContent = u('demoMode'); $('demoHint').textContent = u('demoHint');
+  $('simwalkL').textContent = u('simwalk'); $('simwalkHint').textContent = u('simwalkHint');
+  $('mapTitle').textContent = u('mapTitle');
+  const lg = u('mapLegend');
+  $('mapLegend').innerHTML = `<span><i style="background:var(--accent)"></i>${lg[0]}</span><span><i style="background:var(--accent);border-radius:3px"></i>${lg[1]}</span>`
+    + `<span><i style="background:var(--cat-drop)"></i>${lg[2]}</span><span><i style="background:var(--muted);height:3px;border-radius:2px"></i>${lg[3]}</span>`;
+  $('leadTitle').textContent = u('leadTitle'); $('leadCamL').textContent = u('leadCam'); $('leadMemL').textContent = u('leadMem');
+  $('leadHint').textContent = u('leadHint'); $('leadCamS').textContent = u('cameraRange');
   $('researchTitle').textContent = u('research'); $('researchHint').textContent = u('researchHint');
   $('btnExport').textContent = u('exportCsv'); $('btnExportMem').textContent = u('exportMem');
   $('connTitle').textContent = u('connection');
@@ -93,7 +100,7 @@ function connectPi() {
   const giveUp = setTimeout(() => { if (!opened) { ws.close(); startDemo(); } }, 2500);
   ws.onopen = () => {
     opened = true; clearTimeout(giveUp);
-    stopDemo(); state.mode = 'pi'; mem.useStore('auralis-memory-v1');
+    stopDemo(); state.mode = 'pi'; mem.useStore('auralis-memory-v1'); applySimWalk();
     $('camera').src = '/video.mjpg';
     renderConn(); applyTexts();
     if (state.walking) speak(t('connected'));
@@ -173,17 +180,27 @@ function onFrame(f) {
   if (!o) level = Math.min(level, 1);
   state.level = level;
 
+  // The Pi speaks obstacles itself (novelty 1). Show what it said; the phone only adds vibration.
+  if (f.announced && f.announced.t !== state.lastPiSaid) {
+    state.lastPiSaid = f.announced.t;
+    state.alerts.unshift({ t: Date.now(), text: f.announced.text, level: f.announced.level });
+    state.alerts.length = Math.min(state.alerts.length, 6);
+    renderAlerts();
+    if (state.walking) vibrate(VIBRATION[f.announced.level]);
+  }
   if (state.walking && o && level > 0) {
     const now = Date.now();
     const cooldown = [Infinity, 6000, 3000, 1500][level];
     if (level > state.lastLevel || now - state.lastAlert > cooldown) {
-      const text = phrase(o, level);
-      speak(text, level === 3 ? 2 : 1);
-      vibrate(VIBRATION[level]);
+      if (!f.piVoice) {
+        const text = phrase(o, level);
+        speak(text, level === 3 ? 2 : 1);
+        vibrate(VIBRATION[level]);
+        state.alerts.unshift({ t: now, text, level });
+        state.alerts.length = Math.min(state.alerts.length, 6);
+        renderAlerts();
+      }
       state.lastAlert = now;
-      state.alerts.unshift({ t: now, text, level });
-      state.alerts.length = Math.min(state.alerts.length, 6);
-      renderAlerts();
       if (level >= 2 && o.remember && state.pos && state.pos.accuracy < 30) {
         const where = state.heading != null ? mem.offset(state.pos, state.heading, o.dist) : state.pos;
         mem.recordHazard(where, o.cls, o.conf, o.dist, o.severity, o.category);
@@ -270,7 +287,7 @@ function drawRadar() {
 // ---------- location ----------
 let geoWatch = null;
 function startGeo() {
-  if (state.mode === 'demo' || !navigator.geolocation) return;
+  if (state.mode === 'demo' || state.simWalk || !navigator.geolocation) return;
   geoWatch = navigator.geolocation.watchPosition((p) => {
     if (p.coords.speed > 0.5 && p.coords.heading != null && !isNaN(p.coords.heading)) state.heading = p.coords.heading;
     onPosition({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy });
@@ -288,6 +305,7 @@ function onPosition(p) {
   state.pos = p;
   if (state.walking) { mem.addBreadcrumb(p); warnRemembered(); guide(); }
   if (Date.now() - lastUiPos > 2000) { lastUiPos = Date.now(); renderPlaces(); renderMemory(); }
+  updateMe();
 }
 
 // Feature 1: warn about remembered hazards long before the camera can see them
@@ -296,6 +314,8 @@ function warnRemembered() {
     if (Date.now() - (state.lastMemWarn.get(h.id) || 0) > 120000 && d > 4) {
       const text = t('remembered', obj(h.cls), Math.round(d));
       speak(text, 1); vibrate(VIBRATION[1]);
+      state.lead = { d: Math.round(d), s: Math.round(d / 1.2) };   // walking speed ~1.2 m/s
+      renderLead();
       state.lastMemWarn.set(h.id, Date.now());
       state.alerts.unshift({ t: Date.now(), text, level: 1 }); state.alerts.length = Math.min(state.alerts.length, 6);
       renderAlerts();
@@ -365,9 +385,57 @@ $('saveForm').onsubmit = (e) => {
   renderPlaces(); renderMemory();
 };
 
+// ---------- map (Leaflet + OpenStreetMap; vectors still draw offline) ----------
+const CHENNAI = [13.0108, 80.2354];
+let map = null, layers = null, meMarker = null;
+async function initMap() {
+  if (!window.L) return;
+  if (!map) {
+    try { const css = await (await fetch('vendor/leaflet.css')).text(); const st = document.createElement('style'); st.textContent = css; document.head.prepend(st); } catch {}
+    map = L.map('map', { zoomControl: true, attributionControl: true }).setView(state.pos ? [state.pos.lat, state.pos.lon] : CHENNAI, 17);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+    layers = L.layerGroup().addTo(map);
+  }
+  setTimeout(() => map.invalidateSize(), 50);
+  drawMapLayers();
+}
+function resetMapLayers() { if (layers) drawMapLayers(); }
+function drawMapLayers() {
+  if (!map) return;
+  layers.clearLayers();
+  const css = getComputedStyle(document.documentElement), col = (n) => css.getPropertyValue('--' + n).trim();
+  const g = mem.graph();
+  for (const e of g.edges) {
+    const a = g.nodes[e.a], b = g.nodes[e.b];
+    L.polyline([[a.lat, a.lon], [b.lat, b.lon]], { color: col('muted'), weight: 4, opacity: 0.55 }).addTo(layers);
+  }
+  for (const h of mem.hazards()) {
+    const r = mem.hazardRisk(h), c = col('cat-' + (h.category || 'static'));
+    L.circleMarker([h.lat, h.lon], { radius: 6 + r * 10, color: c, fillColor: c, fillOpacity: 0.35, weight: 2 })
+      .bindPopup(`<b>${esc(obj(h.cls))}</b><br>${u('seen', h.count)} · ${ago(h.lastSeen)}<br>${u('risk')} ${(r * 100).toFixed(0)}%`).addTo(layers);
+  }
+  for (const p of mem.places()) {
+    L.marker([p.lat, p.lon], { icon: L.divIcon({ className: '', html: `<span class="place-pin">${esc(p.name)}</span>`, iconAnchor: [10, 10] }) }).addTo(layers);
+  }
+  meMarker = null;
+  updateMe(true);
+}
+function updateMe(recenter) {
+  if (!map || !state.pos) return;
+  const ll = [state.pos.lat, state.pos.lon];
+  if (!meMarker) meMarker = L.marker(ll, { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), zIndexOffset: 1000 }).addTo(layers);
+  else meMarker.setLatLng(ll);
+  if (recenter || state.walking) map.panTo(ll, { animate: false });
+}
+function renderLead() {
+  $('leadMem').textContent = state.lead ? `${state.lead.d} m` : '15–25 m';
+  $('leadMemS').textContent = state.lead ? u('secondsEarly', state.lead.s) : u('secondsEarly', '12–20');
+}
+
 // ---------- memory ----------
 function renderMemory() {
   const d = mem.dump();
+  if (map && !$('tab-places').hidden) drawMapLayers();
   $('nHaz').textContent = d.hazards.length; $('nPlaces').textContent = d.places.length; $('nNodes').textContent = d.nodes.length;
   const list = $('hazList');
   if (!d.hazards.length) { list.innerHTML = `<p class="empty">${u('memEmpty')}</p>`; return; }
@@ -388,12 +456,20 @@ function renderMemory() {
 function renderSettings() {
   $('rate').value = store.get('rate', 1); $('rateV').textContent = `${(+$('rate').value).toFixed(1)}×`;
   $('vib').checked = state.vib;
+  $('simwalk').checked = state.simWalk;
   $('demo').checked = state.mode === 'demo';
   $('rowsCount').textContent = u('rows', state.training.length);
   $('modelInfo').textContent = `${u('model')}: ${state.fusionOn ? u('modelOn') : u('modelOff')}`;
 }
 $('rate').oninput = () => { const r = +$('rate').value; setRate(r); store.set('rate', r); $('rateV').textContent = `${r.toFixed(1)}×`; };
 $('vib').onchange = () => { state.vib = $('vib').checked; store.set('vib', state.vib); };
+$('simwalk').onchange = () => { state.simWalk = $('simwalk').checked; store.set('simwalk', state.simWalk); applySimWalk(); };
+function applySimWalk() {
+  if (state.mode === 'demo') return;
+  if (state.simWalk) { demo.seed(); setDemoPos(state.walkOffset); }
+  else { mem.useStore('auralis-memory-v1'); }
+  resetMapLayers(); renderPlaces(); renderMemory();
+}
 $('demo').onchange = () => {
   if ($('demo').checked) { ws?.close(); startDemo(); }
   else { stopDemo(); state.mode = 'connecting'; mem.useStore('auralis-memory-v1'); state.pos = null; renderConn(); applyTexts(); connectPi(); }
@@ -421,6 +497,10 @@ function toggleWalking() {
   state.walking = !state.walking;
   $('btnStart').setAttribute('aria-pressed', state.walking);
   $('btnStart').querySelector('span').textContent = state.walking ? u('stop') : u('start');
+  if (state.walking && state.simWalk && state.mode !== 'demo') {
+    state.walkTimer = setInterval(() => setDemoPos(state.walkOffset + (Date.now() - state.walkStart) / 1000), 500);
+  }
+  if (!state.walking) { clearInterval(state.walkTimer); state.walkTimer = null; }
   if (state.walking) {
     state.walkStart = Date.now();
     speak(state.mode === 'pi' ? t('connected') : 'AURALIS');
@@ -458,8 +538,8 @@ function showTab(name) {
   document.querySelectorAll('[role=tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === name));
   for (const s of ['walk', 'places', 'memory', 'settings']) $('tab-' + s).hidden = s !== name;
   if (name === 'walk') requestAnimationFrame(drawRadar);
-  if (name === 'places') renderPlaces();
-  if (name === 'memory') renderMemory();
+  if (name === 'places') { renderPlaces(); initMap(); }
+  if (name === 'memory') { renderMemory(); renderLead(); }
   if (name === 'settings') renderSettings();
   scrollTo(0, 0);
 }

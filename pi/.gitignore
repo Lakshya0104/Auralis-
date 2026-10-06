@@ -1,5 +1,7 @@
 venv/
-models/
+models/*
+!models/yolov8n.onnx
 cert.pem
 key.pem
 __pycache__/
+dataset_raw/
