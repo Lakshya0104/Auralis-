@@ -2,7 +2,9 @@
 // GPS walk, so the app can be tried (and presented) without the hardware.
 import * as mem from './memory.js';
 
+// Route origin: Chennai by default; moved to the user's real GPS position when a fix arrives
 const BASE = { lat: 13.0108, lon: 80.2354 };
+export function setBase(lat, lon) { BASE.lat = lat; BASE.lon = lon; }
 // A loop around a campus block (metres east, north of BASE)
 const LOOP = [[0, 0], [0, 120], [90, 120], [90, 0], [0, 0]];
 const SPEED = 1.2; // m/s walking

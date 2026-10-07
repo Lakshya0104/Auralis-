@@ -4,6 +4,8 @@ import * as mem from './memory.js';
 import { route } from './router.js';
 import { loadFusion, fuse } from './fusion.js';
 import * as demo from './demo.js';
+// Opened on a phone (not on the Pi's own screen): speak through the phone, so headphones work
+const ON_PHONE = !['localhost', '127.0.0.1'].includes(location.hostname) && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 
 // The Pi (pi/server.py) serves this page and streams obstacles on /ws. The phone adds GPS, compass,
 // voice, vibration, memory and routing. Without a Pi, demo mode feeds simulated data in the same format.
@@ -21,7 +23,7 @@ const state = {
   mode: 'connecting', walking: false, pos: null, heading: null, frame: null, primary: null, features: null,
   level: 0, lastAlert: 0, lastLevel: 0, alerts: [], guiding: null, training: [], lastMemWarn: new Map(),
   lastFrameAt: 0, demoStart: Date.now(), walkStart: 0, walkOffset: 0, fusionOn: false,
-  vib: store.get('vib', true), simWalk: store.get('simwalk', false), phoneVoice: store.get('phonevoice', false), lead: null, walkTimer: null,
+  vib: store.get('vib', true), simWalk: store.get('simwalk', false), phoneVoice: store.get('phonevoice', ON_PHONE), lead: null, walkTimer: null,
 };
 
 // ---------- text ----------
@@ -332,8 +334,14 @@ function startGeo() {
   if (geoWatch !== null) return;
   geoWatch = navigator.geolocation.watchPosition((p) => {
     if (p.coords.speed > 0.5 && p.coords.heading != null && !isNaN(p.coords.heading)) state.heading = p.coords.heading;
-    if (state.autoRoute) return;
-    state.gpsOk = true;
+    if (!state.gpsOk) {
+      // First real GPS fix: stop the classroom route, centre the map and route on where we really are
+      state.gpsOk = true;
+      if (state.autoRoute) { state.autoRoute = false; clearInterval(state.walkTimer); state.walkTimer = null; }
+      demo.setBase(p.coords.latitude, p.coords.longitude);
+      toast(`GPS ±${Math.round(p.coords.accuracy)} m`);
+      if (map) map.setView([p.coords.latitude, p.coords.longitude], 18);
+    }
     onPosition({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy });
   }, () => {}, { enableHighAccuracy: true, maximumAge: 1000 });
   const onOrient = (e) => {
@@ -573,6 +581,7 @@ function startLocation() {
   setTimeout(() => { if (!state.gpsOk && !state.pos) { useRouteLocation(); toast(u('noGps')); } }, 5000);
 }
 function useRouteLocation() {
+  if (state.gpsOk) return;           // real GPS always wins
   state.autoRoute = true;
   setDemoPos(state.walkOffset);
   if (state.walking && !state.walkTimer && state.mode !== 'demo') {
