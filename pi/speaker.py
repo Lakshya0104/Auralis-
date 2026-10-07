@@ -1,9 +1,19 @@
-"""Voice on the Pi itself (espeak-ng), so the cane talks even with no phone connected.
+"""Voice on the Pi itself, so the cane talks even with no phone connected.
 Audio goes to whatever the Pi outputs to: HDMI (projector speakers), the 3.5 mm jack, or a
 Bluetooth speaker / earphones paired to the Pi.
 
-    sudo apt install espeak-ng      (done by setup_pi.sh)
+Natural voices, best first:
+  1. Microsoft neural voices (edge-tts): Neerja (English, India), Swara (Hindi), Shruti (Telugu),
+     Pallavi (Tamil). Needs internet the first time a sentence is spoken.
+  2. Google voice (gTTS), also online.
+  3. espeak-ng (offline, robotic) - only if both of the above fail.
+Every generated sentence is saved in voice_cache/, so repeats play instantly and offline, and
+common sentences are pre-recorded in the background at start-up.
 """
+import asyncio
+import hashlib
+import os
+import pathlib
 import queue
 import shutil
 import subprocess
@@ -67,14 +77,55 @@ PHRASES = {
     "ta": {"ahead": "முன்னால் {o} கண்டறியப்பட்டது, {d}", "left": "இடது பக்கம் {o} கண்டறியப்பட்டது, {d}", "right": "வலது பக்கம் {o} கண்டறியப்பட்டது, {d}",
            "stop": "நில்லுங்கள். {o} மிக அருகில் உள்ளது", "m": "{n} மீட்டர்", "m1": "1 மீட்டர்", "cm": "{n} சென்டிமீட்டர்", "ready": "ஆராலிஸ் தயார்"},
 }
-VOICES = {"en": "en-gb", "hi": "hi", "te": "te", "ta": "ta"}
+VOICES = {"en": "en-gb", "hi": "hi", "te": "te", "ta": "ta"}                     # espeak-ng fallback
+NEURAL = {"en": "en-IN-NeerjaNeural", "hi": "hi-IN-SwaraNeural",
+          "te": "te-IN-ShrutiNeural", "ta": "ta-IN-PallaviNeural"}            # edge-tts
+CACHE = pathlib.Path(__file__).resolve().parent / "voice_cache"
+# objects most likely in a classroom demo: their sentences are pre-recorded at start-up
+COMMON = ["person", "chair", "backpack", "bottle", "laptop", "cell phone", "book", "dining table", "obstacle", "cup"]
+
+
+def _cached(lang, text):
+    return CACHE / lang / (hashlib.sha1(text.encode()).hexdigest()[:16] + ".mp3")
+
+
+def synthesize(lang, text):
+    """Returns a path to an mp3 of `text` in a natural voice, or None if no online voice is reachable."""
+    path = _cached(lang, text)
+    if path.exists() and path.stat().st_size > 1000:
+        return path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".part")
+    try:
+        import edge_tts
+        asyncio.run(asyncio.wait_for(edge_tts.Communicate(text, NEURAL[lang], rate="+5%").save(str(tmp)), 8))
+    except Exception:
+        try:
+            from gtts import gTTS
+            gTTS(text, lang=lang, tld="co.in", timeout=6).save(str(tmp))
+        except Exception:
+            tmp.unlink(missing_ok=True)
+            return None
+    if tmp.exists() and tmp.stat().st_size > 1000:
+        os.replace(tmp, path)
+        return path
+    tmp.unlink(missing_ok=True)
+    return None
+
+
+def common_sentences(lang):
+    out = [PHRASES[lang]["ready"]]
+    for cls in COMMON:
+        out.append(sentence(lang, {"cls": cls}, urgent=True))
+        for side in ("ahead", "left", "right"):
+            for d in (1, 1.5, 2, 2.5, 3):
+                out.append(sentence(lang, {"cls": cls, "side": side, "dist": d}))
+    return out
 
 
 def distance_words(lang, metres):
     p = PHRASES[lang]
-    if metres < 1:
-        return p["cm"].format(n=max(10, int(round(metres * 10)) * 10))
-    n = round(metres * 2) / 2                      # nearest half metre
+    n = max(1.0, round(metres * 2) / 2)            # nearest half metre (urgent "Stop" covers < 0.8 m)
     n = int(n) if n == int(n) else n
     return p["m1"] if n == 1 else p["m"].format(n=n)
 
@@ -88,14 +139,46 @@ def sentence(lang, obstacle, urgent=False):
 
 
 class Speaker:
-    def __init__(self, lang="en", enabled=True):
-        self.lang = lang
-        self.enabled = enabled and shutil.which("espeak-ng") is not None
-        if enabled and not self.enabled:
-            print("[voice] espeak-ng not installed: sudo apt install espeak-ng")
+    def __init__(self, lang="en", enabled=True, natural=True):
+        self._lang = lang
+        self.natural = natural and shutil.which("mpg123") is not None
+        self.enabled = enabled and (self.natural or shutil.which("espeak-ng") is not None)
+        if enabled and not self.natural:
+            print("[voice] natural voice needs mpg123: sudo apt install mpg123  (using espeak-ng)")
         self.q = queue.Queue()
         self.proc = None
+        self.online = True
+        self.offline_since = 0.0
         threading.Thread(target=self._run, daemon=True).start()
+        self._prewarm()
+
+    @property
+    def lang(self):
+        return self._lang
+
+    @lang.setter
+    def lang(self, value):
+        self._lang = value
+        self._prewarm()
+
+    def _prewarm(self):
+        if not (self.enabled and self.natural):
+            return
+        lang = self._lang
+
+        def work():
+            made = 0
+            for text in common_sentences(lang):
+                if self._lang != lang:
+                    return
+                if synthesize(lang, text) is None:
+                    self.online = False
+                    print("[voice] no internet for natural voice; using cached sentences / espeak-ng")
+                    return
+                made += 1
+            self.online = True
+            print(f"[voice] {made} natural-voice sentences ready offline ({lang})")
+        threading.Thread(target=work, daemon=True).start()
 
     def say(self, text, urgent=False):
         if not self.enabled:
@@ -113,8 +196,21 @@ class Speaker:
     def _run(self):
         while True:
             text = self.q.get()
-            self.proc = subprocess.Popen(["espeak-ng", "-v", VOICES.get(self.lang, "en"), "-s", "155", text],
-                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            mp3 = None
+            if self.natural:
+                cached = _cached(self._lang, text)
+                if cached.exists():
+                    mp3 = cached                          # instant, works offline
+                elif self.online or time.time() - self.offline_since > 60:
+                    mp3 = synthesize(self._lang, text)    # ~0.5 s online
+                    self.online = mp3 is not None
+                    if not self.online:
+                        self.offline_since = time.time()  # don't make alerts wait; retry in a minute
+            if mp3:
+                cmd = ["mpg123", "-q", str(mp3)]
+            else:
+                cmd = ["espeak-ng", "-v", VOICES.get(self._lang, "en"), "-s", "150", text]
+            self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             self.proc.wait()
 
 

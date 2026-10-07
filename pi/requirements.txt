@@ -1,4 +1,6 @@
 aiohttp>=3.9
+edge-tts>=6.1     # natural neural voices (online, cached on the Pi)
+gTTS>=2.5         # fallback natural voice
 onnxruntime>=1.16
 # numpy and opencv come from apt (python3-opencv) so they match each other
 # optional, only for a custom model trained with ml/AURALIS_train_yolo.ipynb:

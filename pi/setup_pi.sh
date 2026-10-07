@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 sudo apt update
 sudo apt install -y python3-picamera2 python3-opencv python3-gpiozero python3-lgpio python3-venv \
-                    espeak-ng openssl
+                    espeak-ng mpg123 openssl
 
 # venv that can still see the apt-installed camera / OpenCV / GPIO packages
 python3 -m venv --system-site-packages venv
