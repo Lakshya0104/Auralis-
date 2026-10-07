@@ -31,9 +31,10 @@ RAISE_DELTA_CM = 12        # this much shorter = step up / raised obstacle
 
 # ---- Models -------------------------------------------------------------------
 YOLO_MODEL = str(MODELS / "auralis_yolo.pt")   # custom-trained (ml/train_yolo.py), used if present
-YOLO_ONNX = str(MODELS / "yolov8n.onnx")       # stock COCO model, runs with onnxruntime only (no PyTorch)
+YOLO_ONNX = str(MODELS / "yolov8n_480.onnx")   # stock COCO model at 480 px (better for small/far objects)
+YOLO_ONNX_FAST = str(MODELS / "yolov8n.onnx")  # 320 px: ~2x faster, use if the Pi is too slow
 YOLO_IMGSZ = 320
-YOLO_CONF = 0.45
+YOLO_CONF = 0.40
 
 # ---- Voice on the Pi (espeak-ng through HDMI / 3.5 mm jack / Bluetooth speaker) -----
 VOICE_LANG = "en"          # en, hi, te, ta  (override: python server.py --lang ta)

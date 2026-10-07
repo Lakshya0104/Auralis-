@@ -99,8 +99,8 @@ function connectPi() {
   let opened = false;
   try {
     ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
-  } catch { return startDemo(); }
-  const giveUp = setTimeout(() => { if (!opened) { ws.close(); startDemo(); } }, 2500);
+  } catch { return notConnected(); }
+  const giveUp = setTimeout(() => { if (!opened) ws.close(); }, 2500);
   ws.onopen = () => {
     opened = true; clearTimeout(giveUp);
     stopDemo(); state.mode = 'pi'; mem.useStore('auralis-memory-v1'); applySimWalk();
@@ -111,9 +111,15 @@ function connectPi() {
   ws.onmessage = (e) => { if (state.mode === 'pi') onFrame(JSON.parse(e.data)); };
   ws.onclose = () => {
     clearTimeout(giveUp);
-    if (state.mode === 'pi') { state.mode = 'offline'; renderConn(); setTimeout(connectPi, 2000); }
-    else if (!opened && state.mode === 'connecting') startDemo();
+    if (state.mode === 'pi' || (!opened && state.mode !== 'demo')) notConnected();
   };
+}
+// Opened from the Pi but the cane is not answering: say so and retry. Demo data only when the user
+// turns on Demo mode in Settings (never silently, so fake objects are never mistaken for real ones).
+function notConnected() {
+  if (state.mode === 'demo') return;
+  state.mode = 'offline'; state.primary = null; renderConn(); renderStatus();
+  setTimeout(() => { if (state.mode === 'offline') connectPi(); }, 2000);
 }
 
 let demoTimer = null;

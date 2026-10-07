@@ -9,12 +9,13 @@ from config import US_MODE, US_TRIG_PIN, US_ECHO_PIN, DROP_DELTA_CM, RAISE_DELTA
 class Ultrasonic:
     def __init__(self, simulate=False):
         self.sensor = None
+        self.simulate = simulate
         if not simulate:
             try:
                 from gpiozero import DistanceSensor
                 self.sensor = DistanceSensor(echo=US_ECHO_PIN, trigger=US_TRIG_PIN, max_distance=3, queue_len=3)
             except Exception as e:
-                print(f"[ultrasonic] not available ({e}); simulating")
+                print(f"[ultrasonic] NOT WORKING ({e}) - camera only. Check wiring: TRIG pin 16, ECHO via divider to pin 18")
         self.cm = None
         self.baseline = None
         self._t0 = time.time()
@@ -23,6 +24,8 @@ class Ultrasonic:
     def _read_cm(self):
         if self.sensor:
             return self.sensor.distance * 100
+        if not self.simulate:
+            return None          # real cane without a working sensor: no fake readings
         if US_MODE == "front":   # simulation: a wall that comes from 2.5 m to 0.4 m every 15 s
             return max(40, 250 - ((time.time() - self._t0) % 15) * 20) + random.gauss(0, 1.5)
         # simulation: flat ground ~70 cm with noise, and a "pit" for 1.5 s every 20 s
@@ -33,6 +36,9 @@ class Ultrasonic:
         while True:
             cm = self._read_cm()
             self.cm = cm
+            if cm is None:
+                time.sleep(0.5)
+                continue
             # learn the normal cane-to-ground distance only from "normal-looking" readings
             if self.baseline is None:
                 self.baseline = cm

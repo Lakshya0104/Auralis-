@@ -10,7 +10,9 @@ import time
 import cv2
 import numpy as np
 
-from config import YOLO_MODEL, YOLO_ONNX, YOLO_IMGSZ, YOLO_CONF, CLASSES
+import sys
+
+from config import YOLO_MODEL, YOLO_ONNX, YOLO_ONNX_FAST, YOLO_IMGSZ, YOLO_CONF, CLASSES
 
 COCO = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
         "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
@@ -29,8 +31,9 @@ class OnnxYolo:
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 4  # Pi 4 has 4 cores
         self.sess = ort.InferenceSession(path, opts, providers=["CPUExecutionProvider"])
-        self.input = self.sess.get_inputs()[0].name
-        self.size = size
+        inp = self.sess.get_inputs()[0]
+        self.input = inp.name
+        self.size = inp.shape[2] if isinstance(inp.shape[2], int) else size   # e.g. 320 or 480, from the model file
 
     def __call__(self, frame, conf):
         h, w = frame.shape[:2]
@@ -73,8 +76,9 @@ class Detector:
             self.ultra = YOLO(ncnn if os.path.isdir(ncnn) else YOLO_MODEL, task="detect")
             print(f"[detector] custom model {YOLO_MODEL}")
         else:
-            self.model = OnnxYolo(YOLO_ONNX)
-            print(f"[detector] stock COCO model {YOLO_ONNX} (onnxruntime)")
+            path = YOLO_ONNX_FAST if "--fast" in sys.argv or not os.path.exists(YOLO_ONNX) else YOLO_ONNX
+            self.model = OnnxYolo(path)
+            print(f"[detector] COCO model {os.path.basename(path)} at {self.model.size}px (onnxruntime)")
 
     def detect(self, frame):
         """Returns [{cls, conf, box:(x1,y1,x2,y2)}] for classes in our taxonomy."""

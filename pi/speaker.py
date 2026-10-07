@@ -221,9 +221,13 @@ class Announcer:
         self.sp, self.within, self.repeat = speaker, within_m, repeat_s
         self.last = {}           # cls -> (time, distance)
         self.last_text = None
+        self.recent = []         # classes seen in the last frames
 
     def update(self, obstacles):
-        target = next((o for o in obstacles if o["inCorridor"] and o["dist"] <= self.within), None)
+        seen = {o["cls"] for o in obstacles}
+        self.recent = (self.recent + [seen])[-3:]
+        stable = lambda c: sum(c in s for s in self.recent) >= 2
+        target = next((o for o in obstacles if o["inCorridor"] and o["dist"] <= self.within and stable(o["cls"])), None)
         if not target:
             return None
         now = time.time()

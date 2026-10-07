@@ -1,6 +1,7 @@
 venv/
 models/*
 !models/yolov8n.onnx
+!models/yolov8n_480.onnx
 cert.pem
 key.pem
 __pycache__/

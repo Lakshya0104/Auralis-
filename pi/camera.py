@@ -29,6 +29,8 @@ class Camera:
         self.loop_file = isinstance(source, str)
         if not self.cap.isOpened():
             print(f"[camera] could not open {source}")
+        else:
+            print(f"[camera] using {'webcam #' + str(source) if isinstance(source, int) else source}")
 
     def read(self):
         """Returns a BGR frame of FRAME_W x FRAME_H, or None."""

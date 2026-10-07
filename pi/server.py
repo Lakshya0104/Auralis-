@@ -46,11 +46,14 @@ def perception_loop(args):
     speaker = Speaker(args.lang, enabled=not args.no_voice)
     announcer = Announcer(speaker, ANNOUNCE_WITHIN_M, REPEAT_AFTER_S)
     speaker.say(PHRASES[args.lang]["ready"])
-    n, t_last = 0, time.time()
+    n, t_last, last_warn = 0, time.time(), 0.0
     fps = 0.0
     while True:
         frame = cam.read() if cam else None
         if frame is None:
+            if cam and time.time() - last_warn > 5:
+                print("[camera] NO PICTURE from the webcam - check the USB cable, or set USB_CAMERA_INDEX = 1 in config.py")
+                last_warn = time.time()
             frame = 40 * __import__("numpy").ones((480, 640, 3), "uint8")
             time.sleep(0.2)
         if n % DEPTH_EVERY_N == 0:
@@ -154,6 +157,7 @@ def main():
     ap.add_argument("--port", type=int, default=8443)
     ap.add_argument("--http", action="store_true", help="plain HTTP (GPS will not work on the phone)")
     ap.add_argument("--lang", default=VOICE_LANG, choices=["en", "hi", "te", "ta"], help="voice language on the Pi")
+    ap.add_argument("--fast", action="store_true", help="smaller 320 px detector (~2x faster, less accurate)")
     ap.add_argument("--no-voice", action="store_true", help="let the phone speak instead of the Pi")
     args = ap.parse_args()
 
