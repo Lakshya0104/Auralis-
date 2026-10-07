@@ -36,6 +36,7 @@ function applyTexts() {
   $('btnGone').querySelector('span').textContent = u('hazardGone');
   $('corridorTitle').textContent = u('corridor');
   $('corridorHint').textContent = u('corridorHint');
+  $('handHint').textContent = u('handHint');
   $('alertsTitle').textContent = u('recentAlerts');
   $('helperTitle').textContent = u('helperView');
   u('tabs').forEach((name, i) => { $('t' + i).querySelector('span').textContent = name; });
@@ -93,6 +94,29 @@ function chooseLang(k) {
   speak(LANGS[k].name);
 }
 
+// ---------- one voice for everything the app says ----------
+function say(text, priority = 1) {
+  const piVoice = state.mode === 'pi' && state.frame?.piVoice;
+  if (piVoice) { try { ws.send(JSON.stringify({ say: text, urgent: priority === 2 })); } catch {} }
+  if (!piVoice || state.phoneVoice) speak(text, priority);
+}
+
+// ---------- the cane's memory lives on the Pi (pi/memory.json) ----------
+let pushTimer = null;
+function pushMemory(db) {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => fetch('/memory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db) }).catch(() => {}), 800);
+}
+async function pullMemory() {
+  try {
+    const d = await (await fetch('/memory')).json();
+    if (d && (d.places?.length || d.hazards?.length || d.nodes?.length)) mem.importDump(d);
+    else pushMemory(mem.dump());       // first run: give the Pi what this browser already knows
+  } catch {}
+  mem.setPersist(pushMemory);
+  renderPlaces(); renderMemory();
+}
+
 // ---------- connection: Pi or demo ----------
 let ws = null;
 function connectPi() {
@@ -104,6 +128,8 @@ function connectPi() {
   ws.onopen = () => {
     opened = true; clearTimeout(giveUp);
     stopDemo(); state.mode = 'pi'; mem.useStore('auralis-memory-v1'); applySimWalk();
+    if (!state.simWalk) pullMemory();
+    startLocation();
     $('camera').src = '/video.mjpg';
     renderConn(); applyTexts(); sendLang();
     if (state.walking) speak(t('connected'));
@@ -178,6 +204,7 @@ function phrase(o, level) {
 
 function onFrame(f) {
   state.frame = f;
+  if (state.mode === 'pi' && typeof f.active === 'boolean' && f.active !== state.walking) setWalking(f.active, false);
   state.lastFrameAt = Date.now();
   state.primary = f.obstacles.find((o) => o.inCorridor) || null;
   const o = state.primary;
@@ -223,6 +250,11 @@ function onFrame(f) {
 }
 
 function renderStatus() {
+  if (state.mode === 'pi' && !state.walking) {
+    $('status').dataset.level = 0; $('statusIcon').setAttribute('href', '#i-check');
+    $('statusHead').textContent = u('pausedState'); $('statusSub').textContent = u('handHint'); $('statusChip').textContent = u('pausedState');
+    return;
+  }
   const o = state.primary, lv = state.level;
   $('status').dataset.level = lv;
   $('statusIcon').setAttribute('href', lv === 3 ? '#i-stop' : lv > 0 ? '#i-alert' : '#i-check');
@@ -297,8 +329,11 @@ function drawRadar() {
 let geoWatch = null;
 function startGeo() {
   if (state.mode === 'demo' || state.simWalk || !navigator.geolocation) return;
+  if (geoWatch !== null) return;
   geoWatch = navigator.geolocation.watchPosition((p) => {
     if (p.coords.speed > 0.5 && p.coords.heading != null && !isNaN(p.coords.heading)) state.heading = p.coords.heading;
+    if (state.autoRoute) return;
+    state.gpsOk = true;
     onPosition({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy });
   }, () => {}, { enableHighAccuracy: true, maximumAge: 1000 });
   const onOrient = (e) => {
@@ -322,7 +357,7 @@ function warnRemembered() {
   for (const { h, d } of mem.hazardsAhead(state.pos, state.heading, 25)) {
     if (Date.now() - (state.lastMemWarn.get(h.id) || 0) > 120000 && d > 4) {
       const text = t('remembered', obj(h.cls), Math.round(d));
-      speak(text, 1); vibrate(VIBRATION[1]);
+      say(text, 1); vibrate(VIBRATION[1]);
       state.lead = { d: Math.round(d), s: Math.round(d / 1.2) };   // walking speed ~1.2 m/s
       renderLead();
       state.lastMemWarn.set(h.id, Date.now());
@@ -340,14 +375,14 @@ function guide(force) {
   if (!g || !state.pos || (!force && Date.now() - lastGuide < 8000)) return;
   lastGuide = Date.now();
   const dest = g.place, dist = mem.distM(state.pos, dest);
-  if (dist < 8) { speak(t('arrived', dest.name), 1); vibrate(VIBRATION[1]); stopGuide(); return; }
+  if (dist < 8) { say(t('arrived', dest.name), 1); vibrate(VIBRATION[1]); stopGuide(); return; }
   const gr = mem.graph(), start = mem.nearestNode(state.pos);
   const r = start ? route(gr, start.id, dest.node) : null;
   let target = dest;
   if (r) target = r.path.map((id) => gr.nodes[id]).find((n) => mem.distM(state.pos, n) > 10) || dest;
   const rel = state.heading == null ? 0 : (mem.bearing(state.pos, target) - state.heading + 360) % 360;
   const idx = rel < 20 || rel > 340 ? 0 : rel < 60 ? 1 : rel < 150 ? 2 : rel < 210 ? 3 : rel < 300 ? 4 : 5;
-  speak(t('toPlace', dest.name, Math.round(dist), t('dirs')[idx]));
+  say(t('toPlace', dest.name, Math.round(dist), t('dirs')[idx]));
 }
 function stopGuide() { state.guiding = null; renderPlaces(); }
 
@@ -387,10 +422,11 @@ function renderRoute(dest) {
 $('saveForm').onsubmit = (e) => {
   e.preventDefault();
   const name = $('placeInput').value.trim();
-  if (!name || !state.pos) return;
+  if (!name) { toast(u('needName')); $('placeInput').focus(); return; }
+  if (!state.pos) useRouteLocation();
   mem.savePlace(state.pos, name);
   $('placeInput').value = '';
-  speak(t('saved', name)); toast(t('saved', name));
+  say(t('saved', name)); toast(t('saved', name));
   renderPlaces(); renderMemory();
 };
 
@@ -507,29 +543,48 @@ $('btnCancel').onclick = () => { $('confirmSheet').hidden = true; };
 $('btnConfirm').onclick = () => { mem.clearAll(); $('confirmSheet').hidden = true; renderPlaces(); renderMemory(); };
 
 // ---------- walk screen actions ----------
-function toggleWalking() {
-  state.walking = !state.walking;
-  $('btnStart').setAttribute('aria-pressed', state.walking);
-  $('btnStart').querySelector('span').textContent = state.walking ? u('stop') : u('start');
-  if (state.walking && state.simWalk && state.mode !== 'demo') {
-    state.walkTimer = setInterval(() => setDemoPos(state.walkOffset + (Date.now() - state.walkStart) / 1000), 500);
-  }
-  if (!state.walking) { clearInterval(state.walkTimer); state.walkTimer = null; }
-  if (state.walking) {
+function toggleWalking() { setWalking(!state.walking, true); }
+// tellPi: false when the change came from the cane itself (hand gesture)
+function setWalking(on, tellPi) {
+  if (on === state.walking) return;
+  state.walking = on;
+  $('btnStart').setAttribute('aria-pressed', on);
+  $('btnStart').querySelector('span').textContent = on ? u('stop') : u('start');
+  if (tellPi && state.mode === 'pi') { try { ws.send(JSON.stringify({ active: on })); } catch {} }
+  clearInterval(state.walkTimer); state.walkTimer = null;
+  if (on) {
     state.walkStart = Date.now();
-    speak(state.mode === 'pi' ? t('connected') : 'AURALIS');
-    if (geoWatch === null) startGeo();
+    if (state.mode !== 'pi') speak('AURALIS');
+    if ((state.simWalk || state.autoRoute) && state.mode !== 'demo') {
+      state.walkTimer = setInterval(() => setDemoPos(state.walkOffset + (Date.now() - state.walkStart) / 1000), 500);
+    }
   } else {
     state.walkOffset += (Date.now() - state.walkStart) / 1000;
-    speechSynthesis?.cancel();
+    if (state.mode !== 'pi') speechSynthesis?.cancel();
   }
+  renderStatus();
 }
 $('btnStart').onclick = toggleWalking;
+
+// Location: phone GPS when available; otherwise (Pi browser, indoors, http page) the classroom route,
+// so saving places and remembering hazards always work.
+function startLocation() {
+  if (geoWatch === null) startGeo();
+  setTimeout(() => { if (!state.gpsOk && !state.pos) { useRouteLocation(); toast(u('noGps')); } }, 5000);
+}
+function useRouteLocation() {
+  state.autoRoute = true;
+  setDemoPos(state.walkOffset);
+  if (state.walking && !state.walkTimer && state.mode !== 'demo') {
+    state.walkStart = Date.now();
+    state.walkTimer = setInterval(() => setDemoPos(state.walkOffset + (Date.now() - state.walkStart) / 1000), 500);
+  }
+}
 $('btnWhere').onclick = () => {
   const n = state.pos && mem.nearestPlace(state.pos);
   if (!n) return;
   const text = t('whereAmI', n.p.name, Math.round(n.d));
-  speak(text); toast(text);
+  say(text); toast(text);
 };
 $('btnSave').onclick = () => {
   showTab('places'); $('placeInput').focus();

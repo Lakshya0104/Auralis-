@@ -32,6 +32,18 @@ APP_DIR = ROOT.parent / "app"
 latest = {"obstacles": [], "ultra": {}, "fps": 0, "t": 0, "announced": None, "piVoice": False}
 latest_jpeg = None
 speaker = None   # set by perception_loop; the app can change its language
+active = True    # paused = no announcements (hand gesture on the ultrasonic, or the app's button)
+MEMORY_FILE = ROOT / "memory.json"   # the cane's own memory of places and hazards
+
+
+def set_active(on, announce=True):
+    global active
+    if on == active:
+        return
+    active = on
+    print(f"[cane] {'active' if on else 'paused'}")
+    if announce and speaker:
+        speaker.say(PHRASES[speaker.lang]["resumed" if on else "paused"], urgent=True)
 COLORS = {"drop": (0, 0, 255), "raised": (0, 140, 255), "static": (0, 220, 255),
           "head": (255, 0, 255), "moving": (255, 160, 0), "zone": (180, 180, 180)}
 
@@ -47,6 +59,7 @@ def perception_loop(args):
     announcer = Announcer(speaker, ANNOUNCE_WITHIN_M, REPEAT_AFTER_S)
     speaker.say(PHRASES[args.lang]["ready"])
     n, t_last, last_warn = 0, time.time(), 0.0
+    hand_since, hand_used = None, False
     fps = 0.0
     while True:
         frame = cam.read() if cam else None
@@ -62,11 +75,20 @@ def perception_loop(args):
         now = time.time()
         fps = 0.8 * fps + 0.2 / max(now - t_last, 1e-3)
         t_last = now
-        said = announcer.update(obstacles)          # novelty 1: "<object> detected ahead, 2 metres"
+        # Hands-free pause / resume: hold a hand < 10 cm from the ultrasonic sensor for 2 seconds
+        cm = us.state().get("cm")
+        if cm is not None and cm < 10:
+            hand_since = hand_since or now
+            if not hand_used and now - hand_since > 2:
+                set_active(not active)
+                hand_used = True
+        else:
+            hand_since, hand_used = None, False
+        said = announcer.update(obstacles) if active else None   # novelty 1: "<object> detected ahead, 2 metres"
         if said:
             print(f"[voice] {said['text']}  (detector {det.last_ms:.0f} ms)")
         latest = {"obstacles": obstacles, "ultra": us.state(), "fps": round(fps, 1), "t": now,
-                  "detMs": round(det.last_ms), "announced": said, "piVoice": speaker.enabled}
+                  "detMs": round(det.last_ms), "announced": said, "piVoice": speaker.enabled, "active": active}
         for o in obstacles:
             if o["box"]:
                 x1, y1, x2, y2 = o["box"]
@@ -85,9 +107,15 @@ async def ws_handler(request):
         # the app sends {"lang": "ta"} when the user picks a language -> the Pi speaks that language
         async for msg in ws:
             try:
-                lang = json.loads(msg.data).get("lang")
+                data = json.loads(msg.data)
             except Exception:
                 continue
+            if "active" in data:                       # app's start / stop button
+                set_active(bool(data["active"]), announce=data.get("announce", True))
+            if data.get("say") and speaker and active:  # e.g. remembered-hazard warnings from the app
+                speaker.say(str(data["say"])[:200], urgent=bool(data.get("urgent")))
+                print(f"[voice] (from app) {data['say']}")
+            lang = data.get("lang")
             if speaker and lang in PHRASES and lang != speaker.lang:
                 speaker.lang = lang
                 speaker.say(PHRASES[lang]["ready"])
@@ -112,6 +140,21 @@ async def mjpeg_handler(request):
         if latest_jpeg:
             await resp.write(b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + latest_jpeg + b"\r\n")
         await asyncio.sleep(0.15)
+
+
+async def memory_get(request):
+    try:
+        return web.json_response(json.loads(MEMORY_FILE.read_text()))
+    except Exception:
+        return web.json_response({})
+
+
+async def memory_put(request):
+    data = await request.json()
+    tmp = MEMORY_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data))
+    tmp.replace(MEMORY_FILE)
+    return web.json_response({"ok": True})
 
 
 async def index(request):
@@ -166,6 +209,8 @@ def main():
     app.router.add_get("/", index)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/video.mjpg", mjpeg_handler)
+    app.router.add_get("/memory", memory_get)
+    app.router.add_post("/memory", memory_put)
     app.router.add_get("/app/", app_page)
     app.router.add_get("/app/index.html", app_page)
     app.router.add_static("/app", APP_DIR)

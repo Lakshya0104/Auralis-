@@ -7,3 +7,5 @@ key.pem
 __pycache__/
 dataset_raw/
 voice_cache/
+memory.json
+memory.tmp

@@ -13,7 +13,7 @@ import os
 import cv2
 import numpy as np
 
-from config import (FRAME_H, FRAME_W, FOCAL_PX, CAM_HEIGHT_M, CAM_PITCH_DEG,
+from config import (DISTANCE_METHOD, FRAME_H, FRAME_W, FOCAL_PX, CAM_HEIGHT_M, CAM_PITCH_DEG,
                     CLASSES, DEPTH_MODEL)
 
 
@@ -75,8 +75,14 @@ def estimate(detections, depthnet):
         hanging = CLASSES.get(d["cls"], ("",))[0] == "head"     # branches / signboards don't touch the ground
         g = ground_distance(y2) if y2 < FRAME_H - 2 and not hanging else None   # bottom cut off -> can't trust it
         s = size_distance(d["cls"], y2 - y1)
-        geo = g if g is not None else s
-        d["dist"], d["method"] = geo, "ground" if g is not None else "size" if s is not None else None
+        if DISTANCE_METHOD == "size" and s is not None:
+            geo, method = s, "size"
+        else:
+            geo, method = (g, "ground") if g is not None else (s, "size" if s is not None else None)
+        # object cut off at both the top and bottom of the picture: it is bigger than the view -> very close
+        if y1 < 4 and y2 > FRAME_H - 4:
+            geo, method = min(geo or 0.6, 0.6), "fills-view"
+        d["dist"], d["method"] = geo, method
         d["_inv"] = depthnet.box_value(d["box"])
         if geo and d["_inv"]:
             pairs.append((d["_inv"], geo))

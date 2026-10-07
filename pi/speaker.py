@@ -69,13 +69,17 @@ NAMES = {
 
 PHRASES = {
     "en": {"ahead": "{o} detected ahead, {d}", "left": "{o} detected on your left, {d}", "right": "{o} detected on your right, {d}",
-           "stop": "Stop. {o} very close", "m": "{n} metres", "m1": "1 metre", "cm": "{n} centimetres", "ready": "AURALIS ready"},
+           "stop": "Stop. {o} very close", "m": "{n} metres", "m1": "1 metre", "cm": "{n} centimetres", "ready": "AURALIS ready",
+           "paused": "AURALIS paused. Hold your hand near the sensor to start again.", "resumed": "AURALIS active"},
     "hi": {"ahead": "आगे {o} पाया गया, {d}", "left": "बाईं ओर {o} पाया गया, {d}", "right": "दाईं ओर {o} पाया गया, {d}",
-           "stop": "रुकिए. {o} बहुत पास है", "m": "{n} मीटर", "m1": "1 मीटर", "cm": "{n} सेंटीमीटर", "ready": "औरालिस तैयार है"},
+           "stop": "रुकिए. {o} बहुत पास है", "m": "{n} मीटर", "m1": "1 मीटर", "cm": "{n} सेंटीमीटर", "ready": "औरालिस तैयार है",
+           "paused": "औरालिस रुका हुआ है. फिर शुरू करने के लिए सेंसर के पास हाथ रखें.", "resumed": "औरालिस चालू है"},
     "te": {"ahead": "ముందు {o} గుర్తించబడింది, {d}", "left": "ఎడమ వైపు {o} గుర్తించబడింది, {d}", "right": "కుడి వైపు {o} గుర్తించబడింది, {d}",
-           "stop": "ఆగండి. {o} చాలా దగ్గరగా ఉంది", "m": "{n} మీటర్లు", "m1": "1 మీటరు", "cm": "{n} సెంటీమీటర్లు", "ready": "ఆరాలిస్ సిద్ధంగా ఉంది"},
+           "stop": "ఆగండి. {o} చాలా దగ్గరగా ఉంది", "m": "{n} మీటర్లు", "m1": "1 మీటరు", "cm": "{n} సెంటీమీటర్లు", "ready": "ఆరాలిస్ సిద్ధంగా ఉంది",
+           "paused": "ఆరాలిస్ ఆపబడింది. మళ్లీ ప్రారంభించడానికి సెన్సార్ దగ్గర చేయి ఉంచండి.", "resumed": "ఆరాలిస్ పనిచేస్తోంది"},
     "ta": {"ahead": "முன்னால் {o} கண்டறியப்பட்டது, {d}", "left": "இடது பக்கம் {o} கண்டறியப்பட்டது, {d}", "right": "வலது பக்கம் {o} கண்டறியப்பட்டது, {d}",
-           "stop": "நில்லுங்கள். {o} மிக அருகில் உள்ளது", "m": "{n} மீட்டர்", "m1": "1 மீட்டர்", "cm": "{n} சென்டிமீட்டர்", "ready": "ஆராலிஸ் தயார்"},
+           "stop": "நில்லுங்கள். {o} மிக அருகில் உள்ளது", "m": "{n} மீட்டர்", "m1": "1 மீட்டர்", "cm": "{n} சென்டிமீட்டர்", "ready": "ஆராலிஸ் தயார்",
+           "paused": "ஆராலிஸ் நிறுத்தப்பட்டது. மீண்டும் தொடங்க சென்சார் அருகே கையை வையுங்கள்.", "resumed": "ஆராலிஸ் இயங்குகிறது"},
 }
 VOICES = {"en": "en-gb", "hi": "hi", "te": "te", "ta": "ta"}                     # espeak-ng fallback
 NEURAL = {"en": "en-IN-NeerjaNeural", "hi": "hi-IN-SwaraNeural",
@@ -114,7 +118,7 @@ def synthesize(lang, text):
 
 
 def common_sentences(lang):
-    out = [PHRASES[lang]["ready"]]
+    out = [PHRASES[lang]["ready"], PHRASES[lang]["paused"], PHRASES[lang]["resumed"]]
     for cls in COMMON:
         out.append(sentence(lang, {"cls": cls}, urgent=True))
         for side in ("ahead", "left", "right"):

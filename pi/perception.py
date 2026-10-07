@@ -1,7 +1,7 @@
 """Turns detections + distances + ultrasonic into obstacles (taxonomy, corridor, motion)."""
 import time
 
-from config import (US_MODE, US_FRONT_ALERT_CM, CLASSES, CORRIDOR_WIDTH_M, MAX_RANGE_M, FRAME_H, FRAME_W, PARKABLE,
+from config import (PATH_LEFT, PATH_RIGHT, US_MODE, US_FRONT_ALERT_CM, CLASSES, CORRIDOR_WIDTH_M, MAX_RANGE_M, FRAME_H, FRAME_W, PARKABLE,
                     DROP, RAISED, STATIC, HEAD, MOVING)
 from distance import estimate, lateral_offset_m
 
@@ -50,11 +50,14 @@ def perceive(detections, ultra, depthnet):
         # vehicles standing still for 3 s are parked obstacles
         if o["cls"] in PARKABLE and o["still_for"] > 3:
             category = STATIC
-        in_corridor = abs(lateral) <= CORRIDOR_WIDTH_M / 2 and o["dist"] <= MAX_RANGE_M
+        # side from where the object is in the picture (robust, no calibration needed)
+        fx1, fx2, fcx = x1 / FRAME_W, x2 / FRAME_W, o["cx"] / FRAME_W
+        side = "left" if fcx < PATH_LEFT else "right" if fcx > PATH_RIGHT else "ahead"
+        in_corridor = fx2 > PATH_LEFT and fx1 < PATH_RIGHT and o["dist"] <= MAX_RANGE_M
         out.append({
             "cls": o["cls"], "category": category, "severity": severity,
             "conf": round(o["conf"], 2), "dist": round(o["dist"], 2), "method": o["method"],
-            "lateral": round(lateral, 2), "side": "ahead" if abs(lateral) < 0.25 else "left" if lateral < 0 else "right",
+            "lateral": round(lateral, 2), "side": side,
             "approach": round(o["approach"], 2), "inCorridor": in_corridor,
             "area": round((x2 - x1) * (y2 - y1) / (FRAME_W * FRAME_H), 3),
             "offset": round(min(abs(o["cx"] - FRAME_W / 2) / (FRAME_W / 2), 1), 2),
@@ -69,7 +72,7 @@ def perceive(detections, ultra, depthnet):
             centred = [o for o in out if o["inCorridor"] and o["side"] == "ahead" and abs(o["dist"] - cm / 100) < 1.0]
             for o in centred:
                 o["dist"], o["method"] = round(cm / 100, 2), "ultrasonic+camera"
-            if not centred and cm < US_FRONT_ALERT_CM:
+            if not centred and 12 <= cm < US_FRONT_ALERT_CM:
                 out.append({"cls": "obstacle", "category": STATIC, "severity": 0.6, "conf": 0.9, "dist": round(cm / 100, 2),
                             "method": "ultrasonic", "lateral": 0, "side": "ahead", "approach": 0, "inCorridor": True,
                             "area": 0, "offset": 0, "box": None, "remember": True})

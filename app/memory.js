@@ -16,7 +16,10 @@ function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch { return fresh(); }
 }
 function fresh() { return { hazards: [], places: [], nodes: [], edges: [], log: [] }; }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {} }
+// persist: optional extra copy (the Pi stores the cane's memory in pi/memory.json)
+let persist = null;
+export const setPersist = (fn) => { persist = fn; };
+function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {} persist?.(db); }
 export const dump = () => db;
 export function importDump(d) { db = { ...fresh(), ...d }; save(); }
 export function clearAll() { db = fresh(); save(); }

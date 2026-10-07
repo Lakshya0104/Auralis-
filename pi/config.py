@@ -10,10 +10,16 @@ USB_CAMERA_INDEX = 0       # if the webcam is not found, try 1
 
 # ---- Camera mounting (measure on your cane) --------------------------------
 FRAME_W, FRAME_H = 640, 480
-CAM_HFOV_DEG = 66          # Pi Camera Module 3 standard lens (v2 camera: 62)
+CAM_HFOV_DEG = 60          # USB webcams are usually 55-70 deg (Pi Camera Module 3: 66)
 CAM_HEIGHT_M = 0.90        # camera height above the ground
 CAM_PITCH_DEG = 20         # camera tilted down from horizontal
 FOCAL_PX = (FRAME_W / 2) / math.tan(math.radians(CAM_HFOV_DEG / 2))
+
+# Distance: "size" = from how big the object looks (works for any mounting, recommended),
+#           "ground" = from where it touches the floor (needs exact CAM_HEIGHT_M / CAM_PITCH_DEG)
+DISTANCE_METHOD = "size"
+# Side: the picture is split in 3: left | ahead | right. Objects overlapping the middle part are "in your path".
+PATH_LEFT, PATH_RIGHT = 0.33, 0.67
 
 # ---- Walking corridor -------------------------------------------------------
 CORRIDOR_WIDTH_M = 1.0     # objects whose nearest edge is within +-0.5 m of the centre line
