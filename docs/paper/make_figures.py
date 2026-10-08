@@ -106,12 +106,11 @@ fig, ax = plt.subplots(figsize=(W1, 1.75))
 for n, c in zip([1, 3, 5], [BLUE, ORANGE, AQUA]):
     r = (1 - np.exp(-n / 2)) * 0.5 ** (days / 7)
     ax.plot(days, r, color=c, label=f"seen {n}×")
-    ax.annotate(f"seen {n}×", (days[-1], r[-1]), xytext=(3, 0), textcoords="offset points", va="center", fontsize=7, color=INK2)
 ax.axhline(0.15, color=INK2, lw=0.9, ls=(0, (3, 2)))
 ax.text(0.3, 0.165, "warning threshold (0.15)", fontsize=7, color=INK2)
 ax.set_xlabel("Days since last sighting")
 ax.set_ylabel("Hazard risk (severity = 1)")
-ax.set_xlim(0, 32)
+ax.set_xlim(0, 28)
 ax.set_ylim(0, 1)
 ax.legend(loc="upper right", ncol=3)
 save(fig, "risk_decay")
@@ -123,7 +122,7 @@ def ground(yb, h=cfg.CAM_HEIGHT_M, pitch=cfg.CAM_PITCH_DEG):
     return h / math.tan(a) if a > math.radians(2) else float("nan")
 
 
-rows = np.arange(250, 480)
+rows = np.arange(120, 480)
 true = np.array([ground(r) for r in rows])
 fig, ax = plt.subplots(figsize=(W1, 1.75))
 for d_pitch, c, lab in [(2, BLUE, "tilt off by +2°"), (-2, ORANGE, "tilt off by −2°")]:
@@ -135,7 +134,8 @@ ax.axhline(0, color=INK2, lw=0.8)
 ax.set_xlim(0.5, 4)
 ax.set_xlabel("True distance (m)")
 ax.set_ylabel("Distance error (%)")
-ax.legend(loc="lower left", ncol=1)
+ax.set_ylim(-16, 22)
+ax.legend(loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.18), handlelength=1.4, columnspacing=1)
 save(fig, "distance_sensitivity")
 results["distance"] = {f"err_pct_at_{d}m_pitch+2": float(np.interp(d, true[::-1], (100 * (np.array([ground(r, pitch=cfg.CAM_PITCH_DEG + 2) for r in rows]) - true) / true)[::-1])) for d in [1, 2, 3]}
 results["distance"].update({f"err_pct_at_{d}m_pitch-2": float(np.interp(d, true[::-1], (100 * (np.array([ground(r, pitch=cfg.CAM_PITCH_DEG - 2) for r in rows]) - true) / true)[::-1])) for d in [1, 2, 3]})
@@ -155,9 +155,11 @@ for lam, c, lab, ls in [("0", ORANGE, "shortest (λ = 0)", "-"), ("4", BLUE, "sa
     ax.plot(*pts.T, color=c, lw=2, label=lab, ls=ls, zorder=3)
 for hz in R["hazards"]:
     ax.scatter(*hz["xy"], s=30 + 160 * hz["risk"], facecolor="none", edgecolor="#e34948", lw=1.4, zorder=4)
-    ax.annotate(hz["cls"].replace("_", " "), hz["xy"], xytext=(4, 4), textcoords="offset points", fontsize=6.5, color=INK2)
+    off = {"open_drain": (-30, 9), "pothole": (2, 9), "pole": (7, -3), "branch": (-8, -12), "speed_breaker": (-22, 9)}.get(hz["cls"], (4, 4))
+    ax.annotate(hz["cls"].replace("_", " "), hz["xy"], xytext=off, textcoords="offset points", fontsize=6.5, color=INK2)
 ax.scatter(*nodes[R["start"]], s=26, color=INK, zorder=5)
-ax.annotate("start", nodes[R["start"]], xytext=(-22, -2), textcoords="offset points", fontsize=7)
+ax.annotate("start", nodes[R["start"]], xytext=(-26, -3), textcoords="offset points", fontsize=7)
+ax.set_xlim(-25, 115)
 ax.scatter(*nodes[R["goal"]], s=26, color=INK, marker="s", zorder=5)
 ax.annotate("goal", nodes[R["goal"]], xytext=(5, -9), textcoords="offset points", fontsize=7)
 ax.set_aspect("equal")
@@ -169,7 +171,6 @@ bx.plot(range(len(lams)), [d["length"] for d in R["lambdas"]], color=BLUE, marke
 bx.set_xticks(range(len(lams)), [str(l) for l in lams])
 bx.set_xlabel("Risk weight λ")
 bx.set_ylabel("Route length (m)")
-bx2 = bx.twinx() if False else None   # one axis per chart: risk goes in its own panel below
 bx.set_ylim(0, 230)
 for i, d in enumerate(R["lambdas"]):
     if d["lambda"] in (0, 4):

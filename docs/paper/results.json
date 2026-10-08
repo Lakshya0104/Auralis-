@@ -84,7 +84,7 @@
    ]
   },
   "params": 484,
-  "mlp_us_per_sample_numpy": 5.227072899998575
+  "mlp_us_per_sample_numpy": 0.5154930000003333
  },
  "decay": {
   "count1_days_to_threshold": 9.739021057227024,
@@ -94,10 +94,10 @@
  "distance": {
   "err_pct_at_1m_pitch+2": -6.760641137483083,
   "err_pct_at_2m_pitch+2": -8.659606118461438,
-  "err_pct_at_3m_pitch+2": -9.556245878182546,
+  "err_pct_at_3m_pitch+2": -11.364968250441876,
   "err_pct_at_1m_pitch-2": 7.306456655037425,
   "err_pct_at_2m_pitch-2": 10.116678536037798,
-  "err_pct_at_3m_pitch-2": 11.465258322304358
+  "err_pct_at_3m_pitch-2": 14.359348325449503
  },
  "camera": {
   "height_m": 0.9,
@@ -144,8 +144,8 @@
   }
  ],
  "detector_latency_dev_machine": {
-  "320px_ms": 10.480615500000567,
-  "480px_ms": 22.402641550002045,
+  "320px_ms": 16.643524799997067,
+  "480px_ms": 27.615052550004293,
   "cpu": "x86_64"
  }
 }
