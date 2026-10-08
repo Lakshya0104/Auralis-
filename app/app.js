@@ -498,7 +498,8 @@ async function initMap() {
   if (!window.L) return;
   if (!map) {
     try { const css = await (await fetch('vendor/leaflet.css')).text(); const st = document.createElement('style'); st.textContent = css; document.head.prepend(st); } catch {}
-    map = L.map('map', { zoomControl: true, attributionControl: true }).setView(state.pos ? [state.pos.lat, state.pos.lon] : INDIA, state.pos ? 17 : 4);
+    const home = state.frame?.phone;   // college (pi/config.py) or the cane's last real GPS fix
+    map = L.map('map', { zoomControl: true, attributionControl: true }).setView(state.pos ? [state.pos.lat, state.pos.lon] : home ? [home.lat, home.lon] : INDIA, state.pos || home ? 17 : 4);
     state.mapCentred = !!state.pos;
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
     layers = L.layerGroup().addTo(map);

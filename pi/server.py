@@ -24,7 +24,7 @@ from detector import Detector
 from distance import DepthNet
 from perception import perceive
 from ultrasonic import Ultrasonic
-from config import DEPTH_EVERY_N, VOICE_LANG, ANNOUNCE_WITHIN_M, REPEAT_AFTER_S
+from config import DEPTH_EVERY_N, VOICE_LANG, ANNOUNCE_WITHIN_M, REPEAT_AFTER_S, COLLEGE_LAT, COLLEGE_LON
 from speaker import Speaker, Announcer, PHRASES
 
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -41,6 +41,9 @@ try:
     phone_fix = json.loads(LASTFIX_FILE.read_text())
 except Exception:
     phone_fix = None
+if COLLEGE_LAT is not None and COLLEGE_LON is not None:
+    # the college set in config.py wins over an old GPS fix from somewhere else
+    phone_fix = {"lat": COLLEGE_LAT, "lon": COLLEGE_LON, "accuracy": 0, "heading": None, "t": 0}
 _fix_saved = 0.0
 
 

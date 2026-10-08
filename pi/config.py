@@ -8,6 +8,11 @@ MODELS = pathlib.Path(__file__).resolve().parent / "models"
 CAMERA = "usb"             # "usb" = USB webcam (OpenCV), "pi" = Raspberry Pi camera module (Picamera2)
 USB_CAMERA_INDEX = 0       # if the webcam is not found, try 1
 
+# ---- Where the cane is used ----------------------------------------------------
+# Your college: Google Maps -> right-click the campus -> click the numbers at the top to copy them.
+# The map opens here, and the Classroom walk route is drawn here, until the phone's real GPS takes over.
+COLLEGE_LAT, COLLEGE_LON = None, None      # e.g. 12.9716, 80.0436
+
 # ---- Camera mounting (measure on your cane) --------------------------------
 FRAME_W, FRAME_H = 640, 480
 CAM_HFOV_DEG = 60          # USB webcams are usually 55-70 deg (Pi Camera Module 3: 66)
