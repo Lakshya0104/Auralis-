@@ -144,7 +144,12 @@ function connectPi() {
   };
 }
 // The phone tells the Pi it speaks the alerts (into headphones), so the Pi's own speaker stays quiet
-function sendPhoneVoice() { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ phoneVoice: ON_PHONE && state.phoneVoice })); } catch {} }
+// Only while the app is on screen: a phone with the page in the background cannot speak, so the Pi must
+function sendPhoneVoice() {
+  const on = ON_PHONE && state.phoneVoice && document.visibilityState === 'visible';
+  try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ phoneVoice: on })); } catch {}
+}
+document.addEventListener('visibilitychange', sendPhoneVoice);
 
 // Pi screen while a phone is connected: show the phone's live position and the shared memory.
 // The phone does the recording and speaking; this screen only displays.

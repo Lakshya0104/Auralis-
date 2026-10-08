@@ -153,8 +153,9 @@ async def ws_handler(request):
 
 
 def set_phone_voice():
-    if speaker:
+    if speaker and speaker.muted != bool(phone_voice):
         speaker.muted = bool(phone_voice)
+        print("[voice] a phone is speaking the alerts; Pi speaker quiet" if speaker.muted else "[voice] Pi speaker on")
 
 
 def save_fix(g):
