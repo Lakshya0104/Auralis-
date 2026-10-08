@@ -77,7 +77,14 @@ python server.py --lang en      # or hi / te / ta
 ```
 - The Pi says *"AURALIS ready"*. Walk the cane towards a chair, a bag or a person, and it says *"Chair detected ahead, 2 metres"*. Closer than 80 cm, it says *"Stop. Chair very close"*.
 - **On the projector:** open Chromium on the Pi and go to `https://localhost:8443/`. Click *Advanced → Proceed* once. You'll see the app with the live corridor radar and alerts, and the camera view under "Camera view for a helper".
-- **On a phone:** join the same hotspot and open `https://<pi-ip>:8443/`. The terminal prints the address.
+- **On the phone (with headphones):** this is the real way to use the cane.
+  1. The Pi joins the **phone's hotspot**, so the phone and the Pi are on the same network and the phone still has mobile data for the map.
+  2. Pair your **Bluetooth headphones with the phone**.
+  3. Scan the **QR code** that the Pi prints in the terminal (also shown on the Pi screen under *Open on your phone*), or type the address it prints. Use **Chrome** on Android.
+  4. Tap *Advanced → Proceed*, then **Allow location**. Tap the screen once, which turns on the phone's voice.
+  5. Tap **Start walking**. Alerts are now spoken on the phone, into the headphones, and the Pi's speaker goes quiet. If the phone disconnects, the Pi speaks again by itself.
+  - The phone's **real GPS** drives the location intelligence: the path you walk, remembered hazards at their real position, saved places and guidance. The screen stays on while walking; keep the phone in a pocket, don't lock it.
+  - The **Pi screen / projector** then follows the phone: the map shows where the phone really is, with the same hazards and places (the memory is kept on the Pi in `pi/memory.json`).
 - **For the location memory demo:** go to Settings and turn on **Classroom walk**. Tap **Start walking** and open **Places** to see the map of Chennai with paths, hazards and places. The cane announces remembered hazards about 25 m before reaching them, and **Memory → Location intelligence** shows how many seconds earlier that is than the camera.
 
 The map background needs internet (the hotspot). Without it, the paths, hazards and places still draw on a plain background.
@@ -89,8 +96,9 @@ The map background needs internet (the hotspot). Without it, the paths, hazards 
    - Someone steps in front: *"Person detected ahead."*
    - Switch language with `--lang ta` (or the app's language setting) and repeat.
    - Point out that the neural network runs **on the Pi itself**, about 4–6 frames per second, offline.
-3. **Novelty 2:** turn on Classroom walk and show the map. The cane warns about the remembered pothole 25 m early. Show the Memory screen: 25 m and 21 s early with memory, against about 3 m with the camera alone.
-4. **Close:** cost is under ₹12k, it works offline, and it supports 4 languages.
+3. **Phone + headphones:** the volunteer wears the headphones; the class hears the same alert on the projector screen as text. Show the map on the projector following the phone's real GPS.
+4. **Novelty 2:** outdoors, walk past an obstacle once; walk the same way again and the phone warns about it from memory before the camera sees it. Indoors, turn on Classroom walk and show the map. The cane warns about the remembered pothole 25 m early. Show the Memory screen: 25 m and 21 s early with memory, against about 3 m with the camera alone.
+5. **Close:** cost is under ₹12k, it works offline, and it supports 4 languages.
 
 ## Troubleshooting
 
@@ -101,4 +109,6 @@ The map background needs internet (the hotspot). Without it, the paths, hazards 
 | No voice | Pick the audio output from the speaker icon, and test with `espeak-ng hello`. |
 | Hindi/Telugu/Tamil sound robotic | That's espeak-ng. The phone's voice sounds better: run `python server.py --no-voice` and let the app speak. |
 | Slow (under 2 fps) | Close other apps, use a 3 A power supply, and keep the Pi cool. |
+| Map shows the wrong place | The map waits for the phone's GPS. Go outdoors for a minute; GPS is weak inside buildings. *Classroom walk* starts at the last real GPS position. |
+| No voice on the phone | Tap the screen once (phones only speak after a tap). Check Settings → *Speak on this phone* is on, and the phone's media volume. |
 | Phone can't open the page | The phone and Pi must be on the same hotspot. Use `https://`, not `http://`. |

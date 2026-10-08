@@ -2,7 +2,7 @@
 // GPS walk, so the app can be tried (and presented) without the hardware.
 import * as mem from './memory.js';
 
-// Route origin: Chennai by default; moved to the user's real GPS position when a fix arrives
+// Route origin: the last real GPS fix (phone, or the Pi's saved one); this default only until then
 const BASE = { lat: 13.0108, lon: 80.2354 };
 export function setBase(lat, lon) { BASE.lat = lat; BASE.lon = lon; }
 // A loop around a campus block (metres east, north of BASE)
@@ -61,7 +61,8 @@ export function position(t) {
 
 // Example memory: a walked loop, three places and a few hazards of different ages
 export function seed() {
-  mem.useStore('auralis-demo-memory-v1');
+  // one example memory per area, so the example route always lies where the cane really is
+  mem.useStore(`auralis-demo-memory-v1-${BASE.lat.toFixed(3)},${BASE.lon.toFixed(3)}`);
   if (mem.dump().places.length) return;
   for (let t = 0; t <= 420 / SPEED; t += 3) mem.addBreadcrumb(position(t));
   // a short-cut path across the middle of the block, with hazards on it

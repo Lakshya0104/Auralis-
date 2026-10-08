@@ -58,6 +58,7 @@ function applyTexts() {
   $('simwalkL').textContent = u('simwalk'); $('simwalkHint').textContent = u('simwalkHint');
   $('phonevoiceL').textContent = u('phoneVoice'); $('phonevoiceHint').textContent = u('phoneVoiceHint');
   $('mapTitle').textContent = u('mapTitle');
+  $('phoneTitle').textContent = u('phoneTitle'); $('phoneHint').textContent = u('phoneHint');
   const lg = u('mapLegend');
   $('mapLegend').innerHTML = `<span><i style="background:var(--accent)"></i>${lg[0]}</span><span><i style="background:var(--accent);border-radius:3px"></i>${lg[1]}</span>`
     + `<span><i style="background:var(--cat-drop)"></i>${lg[2]}</span><span><i style="background:var(--muted);height:3px;border-radius:2px"></i>${lg[3]}</span>`;
@@ -112,7 +113,7 @@ function pushMemory(db) {
 async function pullMemory() {
   try {
     const d = await (await fetch('/memory')).json();
-    if (d && (d.places?.length || d.hazards?.length || d.nodes?.length)) mem.importDump(d);
+    if (d && (d.places?.length || d.hazards?.length || d.nodes?.length)) mem.importDump(d, false);
     else pushMemory(mem.dump());       // first run: give the Pi what this browser already knows
   } catch {}
   mem.setPersist(pushMemory);
@@ -133,7 +134,7 @@ function connectPi() {
     if (!state.simWalk) pullMemory();
     startLocation();
     $('camera').src = '/video.mjpg';
-    renderConn(); applyTexts(); sendLang();
+    renderConn(); applyTexts(); sendLang(); sendPhoneVoice();
     if (state.walking) speak(t('connected'));
   };
   ws.onmessage = (e) => { if (state.mode === 'pi') onFrame(JSON.parse(e.data)); };
@@ -142,6 +143,44 @@ function connectPi() {
     if (state.mode === 'pi' || (!opened && state.mode !== 'demo')) notConnected();
   };
 }
+// The phone tells the Pi it speaks the alerts (into headphones), so the Pi's own speaker stays quiet
+function sendPhoneVoice() { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ phoneVoice: ON_PHONE && state.phoneVoice })); } catch {} }
+
+// Pi screen while a phone is connected: show the phone's live position and the shared memory.
+// The phone does the recording and speaking; this screen only displays.
+function followPhone(f) {
+  const p = f.phone, live = !ON_PHONE && p && Date.now() / 1000 - p.t < 10;
+  if (p && !state.gpsOk && !state.baseSet) {
+    // classroom route starts where the cane last really was, not in a fixed city
+    state.baseSet = true; demo.setBase(p.lat, p.lon);
+    if (state.simWalk) applySimWalk(); else if (state.autoRoute) setDemoPos(state.walkOffset);
+  }
+  if (live !== state.viewer) {
+    state.viewer = live;
+    if (live) { state.autoRoute = false; clearInterval(state.walkTimer); state.walkTimer = null; }
+    renderPhoneCard();
+  }
+  if (!live || state.simWalk) return;
+  if (p.heading != null) state.heading = p.heading;
+  if (!state.pos || state.pos.lat !== p.lat || state.pos.lon !== p.lon) {
+    state.pos = { lat: p.lat, lon: p.lon, accuracy: p.accuracy };
+    updateMe();
+  }
+  if (f.memVer !== state.memVer) { state.memVer = f.memVer; pullMemory(); }
+  if (Date.now() - lastUiPos > 2000) { lastUiPos = Date.now(); renderConn(); }
+}
+
+let phoneUrl = null;
+function renderPhoneCard() {
+  const show = !ON_PHONE && state.mode === 'pi' && !state.viewer;
+  $('phoneCard').hidden = !show;
+  if (!show || phoneUrl) return;
+  fetch('/phone').then((r) => r.json()).then((d) => { phoneUrl = d.url; $('phoneUrl').textContent = d.url; }).catch(() => {});
+  const img = $('phoneQr');
+  img.onerror = () => { img.hidden = true; };
+  img.src = '/qr.svg';
+}
+
 // Opened from the Pi but the cane is not answering: say so and retry. Demo data only when the user
 // turns on Demo mode in Settings (never silently, so fake objects are never mistaken for real ones).
 function notConnected() {
@@ -185,6 +224,9 @@ function renderConn() {
   c.textContent = state.mode === 'pi' ? u('connected') : state.mode === 'demo' ? u('demo') : u('offline');
   $('demoBanner').hidden = state.mode !== 'demo';
   $('connInfo').textContent = state.mode === 'pi' ? `${location.host} · ${state.frame?.fps ?? '–'} ${u('fps')}` : c.textContent;
+  if (state.viewer && state.frame?.phone) $('connInfo').textContent += ` · ${u('phoneLive', Math.round(state.frame.phone.accuracy))}`;
+  if (state.frame?.voiceOnPhone) $('connInfo').textContent += ` · ${u('voiceOnPhone')}`;
+  renderPhoneCard();
 }
 
 // ---------- perception frames -> fusion -> alerts ----------
@@ -208,6 +250,7 @@ function onFrame(f) {
   state.frame = f;
   if (state.mode === 'pi' && typeof f.active === 'boolean' && f.active !== state.walking) setWalking(f.active, false);
   state.lastFrameAt = Date.now();
+  if (state.mode === 'pi') followPhone(f);
   state.primary = f.obstacles.find((o) => o.inCorridor) || null;
   const o = state.primary;
   const x = features(f);
@@ -218,19 +261,23 @@ function onFrame(f) {
   if (!o) level = Math.min(level, 1);
   state.level = level;
 
-  // The Pi speaks obstacles itself (novelty 1). Show what it said; the phone only adds vibration.
+  // The Pi decides what to say (novelty 1). It speaks it itself, or, when a phone is connected,
+  // the phone speaks it into the headphones. The Pi screen only shows it then.
   if (f.announced && f.announced.t !== state.lastPiSaid) {
     state.lastPiSaid = f.announced.t;
     state.alerts.unshift({ t: Date.now(), text: f.announced.text, level: f.announced.level });
     state.alerts.length = Math.min(state.alerts.length, 6);
     renderAlerts();
-    if (state.walking) vibrate(VIBRATION[f.announced.level]);
+    if (state.walking && !state.viewer) {
+      if (state.phoneVoice || !f.piVoice) speak(f.announced.text, f.announced.level === 3 ? 2 : 1);
+      vibrate(VIBRATION[f.announced.level]);
+    }
   }
   if (state.walking && o && level > 0) {
     const now = Date.now();
     const cooldown = [Infinity, 6000, 3000, 1500][level];
     if (level > state.lastLevel || now - state.lastAlert > cooldown) {
-      if (!f.piVoice || state.phoneVoice) {
+      if (state.mode !== 'pi') {   // demo: no Pi to decide, so the fusion network's level is spoken
         const text = phrase(o, level);
         speak(text, level === 3 ? 2 : 1);
         vibrate(VIBRATION[level]);
@@ -239,7 +286,7 @@ function onFrame(f) {
         renderAlerts();
       }
       state.lastAlert = now;
-      if (level >= 2 && o.remember && state.pos && state.pos.accuracy < 30) {
+      if (level >= 2 && o.remember && state.pos && state.pos.accuracy < 30 && !state.viewer) {
         const where = state.heading != null ? mem.offset(state.pos, state.heading, o.dist) : state.pos;
         mem.recordHazard(where, o.cls, o.conf, o.dist, o.severity, o.category);
         renderMemory();
@@ -339,10 +386,15 @@ function startGeo() {
       state.gpsOk = true;
       if (state.autoRoute) { state.autoRoute = false; clearInterval(state.walkTimer); state.walkTimer = null; }
       demo.setBase(p.coords.latitude, p.coords.longitude);
-      toast(`GPS ±${Math.round(p.coords.accuracy)} m`);
-      if (map) map.setView([p.coords.latitude, p.coords.longitude], 18);
+      toast(u('gpsOk', Math.round(p.coords.accuracy)));
+      if (map) { map.setView([p.coords.latitude, p.coords.longitude], 18); state.mapCentred = true; }
     }
     onPosition({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy });
+    store.set('lastfix', { lat: p.coords.latitude, lon: p.coords.longitude });
+    if (Date.now() - (state.gpsSent || 0) > 1000 && ws?.readyState === 1) {
+      state.gpsSent = Date.now();
+      try { ws.send(JSON.stringify({ gps: { lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy, heading: state.heading } })); } catch {}
+    }
   }, () => {}, { enableHighAccuracy: true, maximumAge: 1000 });
   const onOrient = (e) => {
     const hdg = e.webkitCompassHeading ?? (e.absolute && e.alpha != null ? 360 - e.alpha : null);
@@ -354,6 +406,7 @@ function startGeo() {
 
 let lastUiPos = 0;
 function onPosition(p) {
+  if (state.viewer && !state.simWalk) return;   // the phone's position is shown instead
   state.pos = p;
   if (state.walking) { mem.addBreadcrumb(p); warnRemembered(); guide(); }
   if (Date.now() - lastUiPos > 2000) { lastUiPos = Date.now(); renderPlaces(); renderMemory(); }
@@ -439,13 +492,14 @@ $('saveForm').onsubmit = (e) => {
 };
 
 // ---------- map (Leaflet + OpenStreetMap; vectors still draw offline) ----------
-const CHENNAI = [13.0108, 80.2354];
+const INDIA = [21, 79];   // only until the first position arrives
 let map = null, layers = null, meMarker = null;
 async function initMap() {
   if (!window.L) return;
   if (!map) {
     try { const css = await (await fetch('vendor/leaflet.css')).text(); const st = document.createElement('style'); st.textContent = css; document.head.prepend(st); } catch {}
-    map = L.map('map', { zoomControl: true, attributionControl: true }).setView(state.pos ? [state.pos.lat, state.pos.lon] : CHENNAI, 17);
+    map = L.map('map', { zoomControl: true, attributionControl: true }).setView(state.pos ? [state.pos.lat, state.pos.lon] : INDIA, state.pos ? 17 : 4);
+    state.mapCentred = !!state.pos;
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
     layers = L.layerGroup().addTo(map);
   }
@@ -478,7 +532,8 @@ function updateMe(recenter) {
   const ll = [state.pos.lat, state.pos.lon];
   if (!meMarker) meMarker = L.marker(ll, { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), zIndexOffset: 1000 }).addTo(layers);
   else meMarker.setLatLng(ll);
-  if (recenter || state.walking) map.panTo(ll, { animate: false });
+  if (!state.mapCentred) { map.setView(ll, 18); state.mapCentred = true; }
+  else if (recenter || state.walking || state.viewer) map.panTo(ll, { animate: false });
 }
 function renderLead() {
   $('leadMem').textContent = state.lead ? `${state.lead.d} m` : '15–25 m';
@@ -520,6 +575,7 @@ $('vib').onchange = () => { state.vib = $('vib').checked; store.set('vib', state
 $('phonevoice').onchange = () => {
   state.phoneVoice = $('phonevoice').checked; store.set('phonevoice', state.phoneVoice);
   if (state.phoneVoice) speak(t('connected'));   // also unlocks speech in the browser
+  sendPhoneVoice();
 };
 $('simwalk').onchange = () => { state.simWalk = $('simwalk').checked; store.set('simwalk', state.simWalk); applySimWalk(); };
 function applySimWalk() {
@@ -562,26 +618,45 @@ function setWalking(on, tellPi) {
   clearInterval(state.walkTimer); state.walkTimer = null;
   if (on) {
     state.walkStart = Date.now();
-    if (state.mode !== 'pi') speak('AURALIS');
+    if (state.mode !== 'pi' || (tellPi && state.phoneVoice)) speak('AURALIS');   // a tap unlocks the phone's voice
+    keepAwake(true);
     if ((state.simWalk || state.autoRoute) && state.mode !== 'demo') {
       state.walkTimer = setInterval(() => setDemoPos(state.walkOffset + (Date.now() - state.walkStart) / 1000), 500);
     }
   } else {
     state.walkOffset += (Date.now() - state.walkStart) / 1000;
     if (state.mode !== 'pi') speechSynthesis?.cancel();
+    keepAwake(false);
   }
   renderStatus();
 }
 $('btnStart').onclick = toggleWalking;
 
+// A phone in the pocket must not sleep: the page (GPS, voice, link to the cane) would stop
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.onrelease = () => { wakeLock = null; }; }
+    if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.walking) keepAwake(true); });
+// Phone browsers only speak after the user has touched the page once: the first tap anywhere turns the voice on
+if (ON_PHONE) addEventListener('pointerdown', () => { if (state.phoneVoice) speak(t('connected')); if (state.walking) keepAwake(true); }, { once: true });
+
 // Location: phone GPS when available; otherwise (Pi browser, indoors, http page) the classroom route,
 // so saving places and remembering hazards always work.
 function startLocation() {
   if (geoWatch === null) startGeo();
-  setTimeout(() => { if (!state.gpsOk && !state.pos) { useRouteLocation(); toast(u('noGps')); } }, 5000);
+  setTimeout(() => {
+    if (state.gpsOk || state.pos || state.viewer) return;
+    if (ON_PHONE) toast(u('waitingGps'));
+    else { useRouteLocation(); toast(u('noGps')); }
+  }, ON_PHONE ? 8000 : 5000);
+  if (!ON_PHONE && !state.baseSet) { const f = store.get('lastfix', null); if (f) demo.setBase(f.lat, f.lon); }
 }
 function useRouteLocation() {
-  if (state.gpsOk) return;           // real GPS always wins
+  if (state.gpsOk || state.viewer) return;   // real GPS always wins
   state.autoRoute = true;
   setDemoPos(state.walkOffset);
   if (state.walking && !state.walkTimer && state.mode !== 'demo') {

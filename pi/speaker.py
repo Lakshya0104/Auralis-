@@ -147,6 +147,7 @@ class Speaker:
         self._lang = lang
         self.natural = natural and shutil.which("mpg123") is not None
         self.enabled = enabled and (self.natural or shutil.which("espeak-ng") is not None)
+        self.muted = False   # a phone is speaking the alerts into headphones
         if enabled and not self.natural:
             print("[voice] natural voice needs mpg123: sudo apt install mpg123  (using espeak-ng)")
         self.q = queue.Queue()
@@ -185,7 +186,7 @@ class Speaker:
         threading.Thread(target=work, daemon=True).start()
 
     def say(self, text, urgent=False):
-        if not self.enabled:
+        if not self.enabled or self.muted:
             return
         if urgent:                     # interrupt whatever is being said
             while not self.q.empty():

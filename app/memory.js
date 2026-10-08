@@ -19,9 +19,10 @@ function fresh() { return { hazards: [], places: [], nodes: [], edges: [], log: 
 // persist: optional extra copy (the Pi stores the cane's memory in pi/memory.json)
 let persist = null;
 export const setPersist = (fn) => { persist = fn; };
-function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {} persist?.(db); }
+function save(remote = true) { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {} if (remote) persist?.(db); }
 export const dump = () => db;
-export function importDump(d) { db = { ...fresh(), ...d }; save(); }
+// remote = false: the copy came from the Pi, so don't send it straight back
+export function importDump(d, remote = true) { db = { ...fresh(), ...d }; save(remote); }
 export function clearAll() { db = fresh(); save(); }
 
 export function distM(a, b) {

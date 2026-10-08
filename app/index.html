@@ -74,6 +74,10 @@ button { cursor: pointer; }
 /* Screens */
 .screen { display: grid; gap: 14px; }
 .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; min-width: 0; }
+.phone-card { display: flex; gap: 14px; align-items: center; }
+.phone-card img { flex: none; background: #fff; border-radius: 8px; }
+.phone-card img[hidden] { display: none; }
+.phone-card .mono { word-break: break-all; }
 h2 { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
 #routeTitle { text-transform: none; letter-spacing: 0; font-size: 17px; color: var(--ink); }
 h1.screen-title { font-size: 26px; margin: 6px 0 2px; text-wrap: balance; }
@@ -223,6 +227,15 @@ details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: 
       <button class="action" id="btnWhere"><svg width="28" height="28"><use href="#i-locate"/></svg><span></span></button>
       <button class="action" id="btnSave"><svg width="28" height="28"><use href="#i-bookmark"/></svg><span></span></button>
       <button class="action" id="btnGone"><svg width="28" height="28"><use href="#i-check"/></svg><span></span></button>
+    </div>
+
+    <div class="card phone-card" id="phoneCard" hidden>
+      <img id="phoneQr" alt="" width="132" height="132">
+      <div style="min-width:0">
+        <h2 id="phoneTitle"></h2>
+        <p class="mono" id="phoneUrl"></p>
+        <p class="hint" id="phoneHint"></p>
+      </div>
     </div>
 
     <div class="card radar-wrap">

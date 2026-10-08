@@ -4,6 +4,9 @@ import { getLang } from './i18n.js';
 
 const UI = {
   en: {
+    waitingGps: 'Waiting for GPS. Go outdoors, or turn on Classroom walk in Settings.', gpsOk: (m) => `GPS ±${m} m`,
+    phoneTitle: 'Open on your phone', phoneHint: 'Join the same hotspot, scan the code with the phone camera, tap Advanced → Proceed. Connect Bluetooth headphones to the phone.',
+    phoneLive: (m) => `Phone connected · GPS ±${m} m`, voiceOnPhone: 'Alerts are spoken on the phone',
     noGps: 'No GPS here, so the classroom route is used for location.', handHint: 'Hands-free: hold your hand near the sensor for 2 seconds to pause or start the cane.', pausedState: 'Paused', needName: 'Type a name for this place first.',
     phoneVoice: 'Speak on this phone', phoneVoiceHint: 'Read alerts aloud here too (phone speaker or Bluetooth earphones), not only on the cane.',
     mapTitle: 'Map', mapLegend: ['You', 'Saved place', 'Remembered hazard', 'Learned path'],
@@ -41,6 +44,9 @@ const UI = {
     connection: 'Connection', fps: 'frames/s',
   },
   hi: {
+    waitingGps: 'GPS का इंतज़ार. बाहर जाएँ, या सेटिंग्स में कक्षा डेमो चाल चालू करें.', gpsOk: (m) => `GPS ±${m} मी`,
+    phoneTitle: 'अपने फ़ोन पर खोलें', phoneHint: 'उसी हॉटस्पॉट से जुड़ें, फ़ोन कैमरा से कोड स्कैन करें, Advanced → Proceed दबाएँ. फ़ोन से ब्लूटूथ हेडफ़ोन जोड़ें.',
+    phoneLive: (m) => `फ़ोन जुड़ा है · GPS ±${m} मी`, voiceOnPhone: 'सूचनाएँ फ़ोन पर बोली जा रही हैं',
     noGps: 'यहाँ GPS नहीं है, इसलिए लोकेशन के लिए कक्षा का रास्ता इस्तेमाल हो रहा है.', handHint: 'बिना बटन: छड़ी रोकने या चालू करने के लिए 2 सेकंड सेंसर के पास हाथ रखें.', pausedState: 'रुका हुआ', needName: 'पहले इस जगह का नाम लिखें.',
     phoneVoice: 'इस फ़ोन पर बोलें', phoneVoiceHint: 'सूचनाएँ यहाँ भी बोलें (फ़ोन स्पीकर या ब्लूटूथ ईयरफ़ोन), सिर्फ़ छड़ी पर नहीं.',
     mapTitle: 'नक्शा', mapLegend: ['आप', 'सेव जगह', 'याद रखा खतरा', 'सीखा हुआ रास्ता'],
@@ -78,6 +84,9 @@ const UI = {
     connection: 'कनेक्शन', fps: 'फ्रेम/सेकंड',
   },
   te: {
+    waitingGps: 'GPS కోసం వేచి ఉంది. బయటికి వెళ్ళండి, లేదా సెట్టింగ్స్‌లో తరగతి నడక ఆన్ చేయండి.', gpsOk: (m) => `GPS ±${m} మీ`,
+    phoneTitle: 'మీ ఫోన్‌లో తెరవండి', phoneHint: 'అదే హాట్‌స్పాట్‌కు కనెక్ట్ అవ్వండి, ఫోన్ కెమెరాతో కోడ్ స్కాన్ చేయండి, Advanced → Proceed నొక్కండి. ఫోన్‌కు బ్లూటూత్ హెడ్‌ఫోన్స్ కనెక్ట్ చేయండి.',
+    phoneLive: (m) => `ఫోన్ కనెక్ట్ అయింది · GPS ±${m} మీ`, voiceOnPhone: 'హెచ్చరికలు ఫోన్‌లో వినిపిస్తున్నాయి',
     noGps: 'ఇక్కడ GPS లేదు, కాబట్టి లొకేషన్ కోసం తరగతి దారిని ఉపయోగిస్తున్నాం.', handHint: 'బటన్ అవసరం లేదు: కర్రను ఆపడానికి లేదా ప్రారంభించడానికి 2 సెకన్లు సెన్సార్ దగ్గర చేయి ఉంచండి.', pausedState: 'ఆపబడింది', needName: 'ముందుగా ఈ చోటుకి పేరు టైప్ చేయండి.',
     phoneVoice: 'ఈ ఫోన్‌లో మాట్లాడు', phoneVoiceHint: 'హెచ్చరికలను ఇక్కడ కూడా చదవండి (ఫోన్ స్పీకర్ లేదా బ్లూటూత్ ఇయర్‌ఫోన్లు), కర్రపై మాత్రమే కాదు.',
     mapTitle: 'మ్యాప్', mapLegend: ['మీరు', 'సేవ్ చేసిన చోటు', 'గుర్తుంచుకున్న ప్రమాదం', 'నేర్చుకున్న దారి'],
@@ -115,6 +124,9 @@ const UI = {
     connection: 'కనెక్షన్', fps: 'ఫ్రేమ్‌లు/సె',
   },
   ta: {
+    waitingGps: 'GPS க்காக காத்திருக்கிறது. வெளியே செல்லுங்கள், அல்லது அமைப்புகளில் வகுப்பறை நடையை இயக்குங்கள்.', gpsOk: (m) => `GPS ±${m} மீ`,
+    phoneTitle: 'உங்கள் போனில் திறக்கவும்', phoneHint: 'அதே ஹாட்ஸ்பாட்டில் இணையுங்கள், போன் கேமராவால் குறியீட்டை ஸ்கேன் செய்து Advanced → Proceed அழுத்துங்கள். போனுடன் ப்ளூடூத் ஹெட்ஃபோனை இணையுங்கள்.',
+    phoneLive: (m) => `போன் இணைந்துள்ளது · GPS ±${m} மீ`, voiceOnPhone: 'எச்சரிக்கைகள் போனில் பேசப்படுகின்றன',
     noGps: 'இங்கே GPS இல்லை, எனவே இருப்பிடத்திற்கு வகுப்பறை வழி பயன்படுத்தப்படுகிறது.', handHint: 'பொத்தான் தேவையில்லை: கைத்தடியை நிறுத்த அல்லது தொடங்க 2 விநாடி சென்சார் அருகே கையை வையுங்கள்.', pausedState: 'நிறுத்தப்பட்டது', needName: 'முதலில் இந்த இடத்திற்கு ஒரு பெயரை உள்ளிடவும்.',
     phoneVoice: 'இந்த போனில் பேசு', phoneVoiceHint: 'எச்சரிக்கைகளை இங்கும் படிக்கவும் (போன் ஸ்பீக்கர் அல்லது புளூடூத் இயர்போன்), கைத்தடியில் மட்டுமல்ல.',
     mapTitle: 'வரைபடம்', mapLegend: ['நீங்கள்', 'சேமித்த இடம்', 'நினைவில் உள்ள ஆபத்து', 'கற்ற வழி'],

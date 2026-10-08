@@ -9,3 +9,4 @@ dataset_raw/
 voice_cache/
 memory.json
 memory.tmp
+lastfix.json

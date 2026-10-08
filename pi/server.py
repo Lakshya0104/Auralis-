@@ -34,6 +34,14 @@ latest_jpeg = None
 speaker = None   # set by perception_loop; the app can change its language
 active = True    # paused = no announcements (hand gesture on the ultrasonic, or the app's button)
 MEMORY_FILE = ROOT / "memory.json"   # the cane's own memory of places and hazards
+LASTFIX_FILE = ROOT / "lastfix.json"  # last phone GPS fix, so the map opens where the cane really is
+mem_ver = 0          # bumped on every memory save, so the Pi screen reloads the map
+phone_voice = set()  # phones that speak the alerts (into headphones); the Pi speaker is quiet meanwhile
+try:
+    phone_fix = json.loads(LASTFIX_FILE.read_text())
+except Exception:
+    phone_fix = None
+_fix_saved = 0.0
 
 
 def set_active(on, announce=True):
@@ -88,7 +96,8 @@ def perception_loop(args):
         if said:
             print(f"[voice] {said['text']}  (detector {det.last_ms:.0f} ms)")
         latest = {"obstacles": obstacles, "ultra": us.state(), "fps": round(fps, 1), "t": now,
-                  "detMs": round(det.last_ms), "announced": said, "piVoice": speaker.enabled, "active": active}
+                  "detMs": round(det.last_ms), "announced": said, "piVoice": speaker.enabled, "active": active,
+                  "voiceOnPhone": bool(phone_voice), "phone": phone_fix, "memVer": mem_ver}
         for o in obstacles:
             if o["box"]:
                 x1, y1, x2, y2 = o["box"]
@@ -110,6 +119,11 @@ async def ws_handler(request):
                 data = json.loads(msg.data)
             except Exception:
                 continue
+            if "phoneVoice" in data:                   # this phone speaks into its headphones
+                (phone_voice.add if data["phoneVoice"] else phone_voice.discard)(ws)
+                set_phone_voice()
+            if isinstance(data.get("gps"), dict):      # the phone's GPS: shown live on the Pi screen
+                save_fix(data["gps"])
             if "active" in data:                       # app's start / stop button
                 set_active(bool(data["active"]), announce=data.get("announce", True))
             if data.get("say") and speaker and active:  # e.g. remembered-hazard warnings from the app
@@ -130,7 +144,26 @@ async def ws_handler(request):
             await asyncio.sleep(0.05)
     finally:
         reader.cancel()
+        phone_voice.discard(ws)
+        set_phone_voice()
     return ws
+
+
+def set_phone_voice():
+    if speaker:
+        speaker.muted = bool(phone_voice)
+
+
+def save_fix(g):
+    global phone_fix, _fix_saved
+    try:
+        phone_fix = {"lat": float(g["lat"]), "lon": float(g["lon"]), "accuracy": float(g.get("accuracy") or 0),
+                     "heading": None if g.get("heading") is None else float(g["heading"]), "t": time.time()}
+    except (KeyError, TypeError, ValueError):
+        return
+    if time.time() - _fix_saved > 30:
+        _fix_saved = time.time()
+        LASTFIX_FILE.write_text(json.dumps(phone_fix))
 
 
 async def mjpeg_handler(request):
@@ -154,7 +187,31 @@ async def memory_put(request):
     tmp = MEMORY_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data))
     tmp.replace(MEMORY_FILE)
-    return web.json_response({"ok": True})
+    global mem_ver
+    mem_ver += 1
+    return web.json_response({"ok": True, "ver": mem_ver})
+
+
+def phone_url(port, http=False):
+    return f"{'http' if http else 'https'}://{local_ip()}:{port}/"
+
+
+async def phone_info(request):
+    return web.json_response({"url": phone_url(request.app["port"], request.app["http"])})
+
+
+async def qr_svg(request):
+    """QR code of the phone address, shown on the Pi screen (needs: pip install qrcode)."""
+    try:
+        import io
+        import qrcode
+        import qrcode.image.svg
+        buf = io.BytesIO()
+        qrcode.make(phone_url(request.app["port"], request.app["http"]), image_factory=qrcode.image.svg.SvgPathFillImage,
+                     box_size=12, border=2).save(buf)
+        return web.Response(body=buf.getvalue(), content_type="image/svg+xml")
+    except Exception:
+        raise web.HTTPNotFound()
 
 
 async def index(request):
@@ -209,6 +266,9 @@ def main():
     app.router.add_get("/", index)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/video.mjpg", mjpeg_handler)
+    app["port"], app["http"] = args.port, args.http
+    app.router.add_get("/phone", phone_info)
+    app.router.add_get("/qr.svg", qr_svg)
     app.router.add_get("/memory", memory_get)
     app.router.add_post("/memory", memory_put)
     app.router.add_get("/app/", app_page)
@@ -216,7 +276,15 @@ def main():
     app.router.add_static("/app", APP_DIR)
     scheme = "http" if args.http else "https"
     print(f"\n  On the Pi screen / projector:  {scheme}://localhost:{args.port}/")
-    print(f"  On a phone (same Wi-Fi):      {scheme}://{local_ip()}:{args.port}/\n")
+    print(f"  On a phone (same Wi-Fi):      {phone_url(args.port, args.http)}\n")
+    try:
+        import qrcode
+        q = qrcode.QRCode(border=1)
+        q.add_data(phone_url(args.port, args.http))
+        q.print_ascii(invert=True)
+        print("  Scan with the phone camera, then tap Advanced -> Proceed.\n")
+    except ImportError:
+        pass
     web.run_app(app, port=args.port, ssl_context=None if args.http else ssl_context(), print=None)
 
 

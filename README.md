@@ -1,6 +1,6 @@
 # AURALIS: a smart cane that remembers
 
-> **Building the demo? Start with [`docs/DEMO_DAY.md`](docs/DEMO_DAY.md):** Pi setup, wiring, mounting and the demo script.
+> **Building the demo? Start with [`docs/DEMO_DAY.md`](docs/DEMO_DAY.md):** Pi setup, wiring, mounting, the phone with headphones, and the demo script. **Presenting? [`docs/PRESENTATION.md`](docs/PRESENTATION.md).**
 
 A smart white cane for visually impaired users. A Raspberry Pi 4 with a camera sees obstacles, and the user's phone speaks them in **English, Hindi, Telugu or Tamil** through Bluetooth earphones. Unlike reactive smart canes, AURALIS **remembers** where hazards are, warns about them before they're even in view, and routes around them.
 
