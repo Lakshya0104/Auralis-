@@ -47,6 +47,7 @@ A vehicle that has been standing still for 3 s counts as parked (static), so it 
 | `pi/config.py` | **All settings**: camera height/tilt, pins, classes, thresholds |
 | `app/` | Phone web app: voice, memory, routing, fusion network, corridor radar, demo mode |
 | `pi/capture.py` | Collect training photos from the cane camera while walking |
+| `ml/AURALIS_detector_demo.ipynb` | **Colab demo:** fine-tunes the cane's YOLO network on a road-hazard dataset and shows mAP, curves and predictions (runs with no account, ~15 min on a free T4) |
 | `ml/AURALIS_train_yolo.ipynb` | **Colab notebook:** download, merge, train, evaluate and export the detector |
 | `ml/merge_datasets.py` | Merge Roboflow / Kaggle / own datasets into AURALIS class ids |
 | `ml/train_yolo.py` | Fine-tune YOLO on our classes |
