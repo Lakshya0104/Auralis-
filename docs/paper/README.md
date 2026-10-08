@@ -11,4 +11,4 @@ python docs/paper/make_figures.py
 cd docs/paper && pdflatex auralis_ieee && pdflatex auralis_ieee
 ```
 
-Before submitting: fill in authors, run the field experiments in Table IV, add recent related work, and check every reference against the original paper.
+Before submitting: add authors when ready, run the field experiments in Table IV, add recent related work, and check every reference against the original paper.
