@@ -157,8 +157,8 @@ def figure(path, cap, width=COLW):
 story = []
 story += [P("AURALIS: A Low-Cost Smart Cane with On-Device Neural Hazard Detection, Multilingual Neural Speech, "
             "and Spatio-Temporal Hazard Memory", "title"),
-          P("Team AURALIS", "auth"),
-          P("Department of Computer Science and Engineering — Artificial and Neural Networks Capstone", "authi"),
+          P("S Lakshya (CH.SC.U4CYS24030) · Pallavi Naga (CH.SC.U4CYS24067) · Madhumita S (CH.SC.U4CYS24034)", "auth"),
+          P("B.Tech Computer Science and Engineering (Cyber Security), Chennai, India — Artificial and Neural Networks Capstone", "authi"),
           Spacer(1, 4), P("Code: github.com/Lakshya0104/Auralis-", "authi"),
           FrameBreak(), NextPageTemplate("later")]
 
@@ -358,7 +358,7 @@ first = PageTemplate("first", [
 later = PageTemplate("later", [
     Frame(M, M, cw, Hh - 2 * M, id="l1", leftPadding=0, rightPadding=0),
     Frame(M + cw + G, M, cw, Hh - 2 * M, id="l2", leftPadding=0, rightPadding=0)], onPage=footer)
-doc = BaseDocTemplate(str(OUT), pagesize=letter, title="AURALIS — IEEE conference paper", author="Team AURALIS")
+doc = BaseDocTemplate(str(OUT), pagesize=letter, title="AURALIS — IEEE conference paper", author="S Lakshya, Pallavi Naga, Madhumita S")
 doc.addPageTemplates([first, later])
 doc.build(story)
 print(f"wrote {OUT}  ({'MEASURED' if not projected else 'projected'} distance values)")
